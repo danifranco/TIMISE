@@ -3,9 +3,10 @@ import kimimaro
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
+from skimage.io import imread
 
 from .mAP_3Dvolume.mAP_engine import mAP_computation
-from .utils import Namespace, prepare_files, cable_length
+from .utils import Namespace, prepare_files, cable_length, mAP_out_to_dataframe
 
 class TIMISE:
     """TIMISE main class """
@@ -16,6 +17,7 @@ class TIMISE:
         self.map_chunk_size = map_chunk_size
 
         self.map_out_filename = "map_match_p.txt"
+        self.map_out_csv = "map.csv"
         self.stats_pred_out_filename = "prediction_stats.csv"
         self.stats_gt_out_filename = "gt_stats.csv"
 
@@ -55,10 +57,10 @@ class TIMISE:
             #################
             # GT statistics #
             #################
-            stats_out_file = os.path.join(pred_out_dir, self.stats_gt_out_filename)
+            stats_out_file = os.path.join(out_dir, self.stats_gt_out_filename)
             if not os.path.exists(stats_out_file):
                 print("Calculating GT statistics . . .")
-                _get_file_statistics(self.gt_tif_file, stats_out_file)
+                self._get_file_statistics(self.gt_tif_file, stats_out_file)
             else:
                 print("Skipping GT statistics calculation (seems to be done here: {} )".format(stats_out_file))
 
@@ -71,20 +73,22 @@ class TIMISE:
                 print("Run mAP code . . .")
                 args = Namespace(gt_seg=self.gt_h5_file, predict_seg=pred_h5_file, predict_score='',
                                  predict_heatmap_channel=-1, threshold=self.map_th, threshold_crumb=self.map_th_crumb,
-                                 chunk_size=self.map_chunk_size, output_name=os.path.join(out_dir, "map"),
+                                 chunk_size=self.map_chunk_size, output_name=os.path.join(pred_out_dir, "map"),
                                  do_txt=1, do_eval=1, slices=-1, verbose=verbose)
                 mAP_computation(args)
+
+                mAP_out_to_dataframe(map_out_file, self.map_out_csv, self.verbose)
             else:
                 print("Skipping mAP calculation (seems to be done here: {} )".format(map_out_file))
 
 
-            #########################
-            # Predctions statistics #
-            #########################
+            ##########################
+            # Predictions statistics #
+            ##########################
             stats_out_file = os.path.join(pred_out_dir, self.stats_pred_out_filename)
             if not os.path.exists(stats_out_file):
                 print("Calculating predictions statistics . . .")
-                _get_file_statistics(pred_tif_file, stats_out_file)
+                self._get_file_statistics(pred_tif_file, stats_out_file)
             else:
                 print("Skipping predictions statistics calculation (seems to be done here: {} )".format(stats_out_file))
 

@@ -1,6 +1,7 @@
 import os
 import h5py
 import numpy as np
+import pandas as pd
 from skimage.io import imread, imsave
 
 def prepare_files(directory, verbose=False):
@@ -88,6 +89,37 @@ def cable_length(vertices, edges, res = [1,1,1]):
     dist = np.sqrt(dist)
     return np.sum(dist)
 
+def mAP_out_to_dataframe(input_file, output_file, verbose=True):
+    if verbose: print("Parsing {} file to build a dataframe . . .".format(input_file))
+    search = open(input_file)
+    pred_id = []
+    pred_size = []
+    iou = []
+    gt_id = []
+    gt_size = []
+    for line in search:
+        line = line.strip()
+        if line:
+            if "#" not in line:
+                line = line.split()
+                pred_id.append(int(line[0]))
+                pred_size.append(int(line[1]))
+                iou.append(float(line[4]))
+                gt_id.append(int(line[2]))
+                gt_size.append(int(line[3]))
+                #print("{},{},{},{}".format(gt_id,gt_size,iou,pred_id))
+
+    # Create the dataframe
+    data_tuples = list(zip(gt_id,gt_size,pred_id,pred_size,iou))
+    df = pd.DataFrame(data_tuples, columns=['gt_id','gt_size','pred_id','pred_size','iou'])
+    df = df.sort_values(by=['gt_id','iou'])
+
+    # Drop background id
+    indexNames = df[df['gt_id'] == 0].index
+    df.drop(indexNames, inplace=True)
+
+    df.to_csv(output_file, index=False)
+    if verbose: print("Dataframe stored in {} . . .".format(output_file))
 
 class Namespace:
     def __init__(self, **kwargs):
