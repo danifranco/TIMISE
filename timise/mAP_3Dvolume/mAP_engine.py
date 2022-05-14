@@ -10,6 +10,7 @@ import os, sys
 import argparse
 import numpy as np
 import h5py
+from prettytable import PrettyTable
 
 from .vol3d_eval import VOL3Deval
 from .vol3d_util import seg_iou3d_sorted, readh5_handle, readh5, unique_chunk
@@ -122,3 +123,31 @@ def mAP_computation(_args):
         v3dEval.params.areaRng = areaRng
         v3dEval.accumulate()
         v3dEval.summarize()
+
+def print_mAP_stats(stats_file):
+    """Print mAP statistics."""
+
+    if not os.path.exists(stats_file):
+        raise ValueError('File {} not found. Did you call TIMISE.evaluate()?'.format(stats_file))
+
+    search = open(stats_file)
+    values = np.zeros((4))
+    for line in search:
+        line = line.strip()
+        if line:
+            line = line.split()
+            if "IoU=0.50:0.95" in line:
+                values[0] = float(line[-1])
+            elif "IoU=0.50" in line:
+                values[1] = float(line[-1])
+            elif "IoU=0.75" in line:
+                values[2] = float(line[-1])
+            elif "IoU=0.90" in line:
+                values[3] = float(line[-1])
+
+    columns = ['IoU=0.50:0.95', 'IoU=0.50', 'IoU=0.75', 'IoU=0.90']
+    t = PrettyTable(columns)
+    t.add_row(values.tolist())
+    print("             Average Precision (AP)              ")
+    print(t)
+

@@ -5,7 +5,7 @@ import pandas as pd
 from tqdm import tqdm
 from skimage.io import imread
 
-from .mAP_3Dvolume.mAP_engine import mAP_computation
+from .mAP_3Dvolume.mAP_engine import mAP_computation, print_mAP_stats
 from .associations import calculate_associations, print_association_stats
 from .utils import Namespace, prepare_files, cable_length, mAP_out_to_dataframe
 
@@ -19,6 +19,7 @@ class TIMISE:
         # mAP
         self.map_out_filename = "map_match_p.txt"
         self.map_out_csv = "map.csv"
+        self.map_stats_file = "map_map.txt"
 
         # Statistic
         self.stats_pred_out_filename = "prediction_stats.csv"
@@ -125,6 +126,8 @@ class TIMISE:
 
         for f in self.pred_out_dirs:
             print("Stats in {}".format(f))
+            print('')
+            print_mAP_stats(os.path.join(f, self.map_stats_file))
             print('')
             print_association_stats(os.path.join(f, self.association_stats_file))
 

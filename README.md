@@ -9,10 +9,18 @@ timise = TIMISE()
 timise.evaluate("/home/user/model_xx_prediction","/home/user/gt", "/home/user/output", data_resolution=[30,8,8])
 timise.summarize()  # Summarize the results as tables in the console
 ```
-The tables printed in the console:
+
+Example of the tables printed in the console:
 
 ```
 Stats in /home/user/analysis/output/model_xx_prediction
+
+             Average Precision (AP)
++---------------+----------+----------+----------+
+| IoU=0.50:0.95 | IoU=0.50 | IoU=0.75 | IoU=0.90 |
++---------------+----------+----------+----------+
+|     0.701     |  0.887   |  0.841   |  0.294   |
++---------------+----------+----------+----------+
 
                                          ASSOCIATIONS
 +-------+------------+---------+-------------------+--------------------+--------------+-------+
