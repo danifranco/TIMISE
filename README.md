@@ -22,7 +22,7 @@ Stats in /home/user/analysis/output/model_xx_prediction
 |     0.701     |  0.887   |  0.841   |  0.294   |
 +---------------+----------+----------+----------+
 
-                                         ASSOCIATIONS
+                                         Associations
 +-------+------------+---------+-------------------+--------------------+--------------+-------+
 |       | one-to-one | missing | over-segmentation | under-segmentation | many-to-many | Total |
 +-------+------------+---------+-------------------+--------------------+--------------+-------+

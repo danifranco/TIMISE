@@ -162,5 +162,5 @@ def print_association_stats(stats_csv):
     cell_statistics = {state: np.around((val/total_instances)*100, 2) for state, val in cell_statistics.items()}
 
     t.add_row(['%',]+list(cell_statistics.values())+[' '])
-    print("                                         ASSOCIATIONS                                         ")
+    print("                                         Associations                                         ")
     print(t)
