@@ -2,13 +2,15 @@ import os
 import pandas as pd
 import numpy as np
 import networkx as nx
+from scipy import stats
 from timagetk.components.labelled_image import LabelledImage
 from skimage.io import imread
 from ctrl.image_overlap import fast_image_overlap3d
 from prettytable import PrettyTable
+import plotly.express as px
 
 
-def calculate_associations(pred_file, gt_file, out_dir, verbose=True):
+def calculate_associations(pred_file, gt_file, gt_stats_file, final_file, verbose=True):
     """Calculate associations between instances. Based on the work presented in `Assessment of deep learning
        algorithms for 3D instance segmentation of confocal image datasets <https://www.biorxiv.org/content/10.1101/2021.06.09.447748v1.full>`_.
        Code `here <https://mosaic.gitlabpages.inria.fr/publications/seg_compare/evaluation.html>`_.
@@ -18,17 +20,21 @@ def calculate_associations(pred_file, gt_file, out_dir, verbose=True):
        pred_file : str
            Path to the file containing the predicted instances.
 
-       pred_file : str
+       gt_file : str
            Path to the file containing the ground truth instances.
 
-       out_dir : str
-           Path to the directory where auxiliary matching statistics will be placed.
+       gt_stats_file : str
+           Path to the prediction statistics.
+
+       final_file : str
+           Path where the final error file will be stored.
 
        verbose : bool, optional
            Wheter to be more verbose.
     """
 
     # Calculating the matching between instances
+    out_dir = os.path.dirname(final_file)
     pred_matching_file = os.path.join(out_dir, "target_mother_matching_file.csv")
     gt_matching_file = os.path.join(out_dir, "target_daughter_matching_file.csv")
     if not os.path.exists(pred_matching_file) or not os.path.exists(gt_matching_file):
@@ -49,6 +55,7 @@ def calculate_associations(pred_file, gt_file, out_dir, verbose=True):
         df_pred.to_csv(pred_matching_file)
         df_gt.to_csv(gt_matching_file)
     else:
+        if verbose: print("Association matching seems to be computed. Loading from file: {}".format(pred_matching_file))
         df_pred = pd.read_csv(pred_matching_file, index_col=False)
         df_gt = pd.read_csv(gt_matching_file, index_col=False)
 
@@ -109,15 +116,65 @@ def calculate_associations(pred_file, gt_file, out_dir, verbose=True):
     out_results['association_type'] = out_results.apply(lambda row: lab_association(row), axis=1)
 
     # Creating association statistics to not do it everytime the user wants to print them
-    cell_statistics = {'one-to-one': 0, 'missing': 0, 'over-segmentation': 0,
-                      'under-segmentation': 0, 'many-to-many': 0}
+    # and modifying the predictions stats to insert information about the association
+    gt_stats = pd.read_csv(gt_stats_file, index_col=False)
+    gt_stats['counter'] = 0
+    gt_stats['association_counter'] = 0
+    gt_stats['association_type'] = 'over-segmentation'
+    _labels = np.array(gt_stats['label'].tolist())
+    _counter = np.array(gt_stats['counter'].tolist())
+    _association_counter = np.array(gt_stats['association_counter'].tolist(), dtype=np.float32)
+    _association_type = np.array(gt_stats['association_type'].tolist())
+    cell_statistics = {'one-to-one': 0, 'missing': 0, 'over-segmentation': 0, 'under-segmentation': 0, 'many-to-many': 0}
     out_results = out_results.reset_index()
     for index, row in out_results.iterrows():
-        for gt_instances in row['gt']:
+        gt_instances = row['gt']
+        for gt_ins in gt_instances:
             cell_statistics[row['association_type']] += 1
+        if row['association_type'] == 'over-segmentation':
+            itemindex = np.where(_labels==gt_instances)
+            _counter[itemindex] += 1
+            _association_counter[itemindex] = len(row['predicted'])
+            _association_type[itemindex] = 'over'
+        elif row['association_type'] == 'under-segmentation':
+            for ins in gt_instances:
+                itemindex = np.where(_labels==ins)
+                _counter[itemindex] += 1
+                _association_counter[itemindex] = -len(gt_instances)
+                _association_type[itemindex] = 'under'
+        elif row['association_type'] == 'many-to-many':
+            pred_count = len(row['predicted'])
+            if pred_count >= len(gt_instances):
+                val = pred_count/len(gt_instances)
+                t = 'over'
+            else:
+                val = -pred_count/len(gt_instances)
+                t = 'under'
+            for ins in gt_instances:
+                itemindex = np.where(_labels==ins)
+                _counter[itemindex] += 1
+                _association_counter[itemindex] = val
+                _association_type[itemindex] = t
+        elif row['association_type'] == 'one-to-one':
+            itemindex = np.where(_labels==gt_instances)
+            _counter[itemindex] += 1
+            _association_type[itemindex] = 'one-to-one'
+        elif row['association_type'] == 'missing':
+            itemindex = np.where(_labels==gt_instances)
+            _counter[itemindex] += 1
+            _association_type[itemindex] = 'missing'
+        else:
+            itemindex = np.where(_labels==gt_instances)
+            _counter[itemindex] += 1
+            _association_type[itemindex] = 'other'
+
+    gt_stats['counter'] = _counter
+    gt_stats['association_counter'] = _association_counter
+    gt_stats['association_type'] = _association_type
     df_out = pd.DataFrame.from_dict({k:[v] for k,v in cell_statistics.items()})
 
     # Saving dataframes
+    gt_stats.to_csv(final_file)
     df_out.to_csv(os.path.join(out_dir, "associations_stats.csv"))
     out_results.to_csv(os.path.join(out_dir, "associations.csv"))
 
@@ -164,3 +221,57 @@ def print_association_stats(stats_csv):
     t.add_row(['%',]+list(cell_statistics.values())+[' '])
     print("                                         Associations                                         ")
     print(t)
+
+
+def association_plot_2d(assoc_file, save_path, bins=30, draw_std=True, log_x=False, log_y=False):
+    """Plot 2D errors."""
+    df = pd.read_csv(assoc_file, index_col=False)
+
+    X = np.array(df['cable_length'].tolist(), dtype=float).tolist()
+    Z = np.array(df['association_counter'].tolist(), dtype=float).tolist()
+
+    binx= np.linspace(df['cable_length'].min(), df['cable_length'].max(), bins, dtype=float)
+    binz= np.linspace(df['association_counter'].min(), df['association_counter'].max(), bins, dtype=float)
+    ret = stats.binned_statistic_2d(X, Z, X, 'mean', bins=[binx, binz], expand_binnumbers=True)
+    ret_size = stats.binned_statistic(Z, Z, 'count', bins=binz)
+    ret_std = stats.binned_statistic(Z, Z, 'std', bins=binz)
+
+    username = os.path.basename(save_path)
+    data_tuples = list(zip(ret.x_edge, ret.y_edge, np.log(ret_size.statistic +1)*50, ret_std.statistic))
+    df2 = pd.DataFrame(data_tuples, columns=['cable_length','association_counter', 'bin_counter', 'stdev_assoc'])
+    error_y = 'stdev_assoc' if draw_std else None
+    fig = px.scatter(df2, x="cable_length", y="association_counter", size="bin_counter", color="association_counter",
+                     error_y=error_y, log_x=log_x, log_y=log_y, title=username+' - Error analysis')
+    fig.layout.showlegend = False
+    fig.update(layout_coloraxis_showscale=False)
+
+    #fig.show()
+    fig.write_image(os.path.join(save_path,username+"_error.svg"))
+
+
+def association_plot_3d(assoc_file, save_path, draw_plane=True, log_x=True, log_y=True, color="association_type",
+                        symbol="tag"):
+    """Plot 3D errors."""
+    axis_propety = ['volume','cable_length','association_counter']
+    #seq = ['red', 'green', 'blue','magenta']
+    #sseq = ['circle-open', 'diamond', 'cross']
+    seq = None
+    sseq = None
+
+    df = pd.read_csv(assoc_file, index_col=False)
+    fig = px.scatter_3d(df, x=axis_propety[0], y=axis_propety[1], z=axis_propety[2], color=color,
+                        color_discrete_sequence=seq, symbol_sequence=sseq, symbol=symbol, log_x=log_x, log_y=log_y)
+
+    if draw_plane:
+        height = 0
+        x= np.linspace(df['volume'].min(), df['volume'].max(), 100)
+        y= np.linspace(df['cable_length'].min(), df['cable_length'].max(), 100)
+        z= height*np.ones((100,100))
+        mycolorscale = [[0, '#f6ff00'], [1, '#f6ff00']]
+        fig.add_surface(x=x, y=y, z=z, colorscale=mycolorscale, opacity=0.3, showscale=False)
+
+    username = os.path.basename(save_path)
+    fig.update_layout(title=username+' - Error analysis', scene = dict(xaxis_title='Volume', yaxis_title='Cable length',
+                      zaxis_title='Associations'), autosize=False, width=800, height=800, margin=dict(l=65, r=50, b=65, t=90))
+    #fig.show()
+    fig.write_image(os.path.join(save_path,username+"_error_3D.svg"))
