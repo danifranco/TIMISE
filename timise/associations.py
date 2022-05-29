@@ -125,12 +125,23 @@ def calculate_associations(pred_file, gt_file, gt_stats_file, final_file, verbos
     _counter = np.array(gt_stats['counter'].tolist())
     _association_counter = np.array(gt_stats['association_counter'].tolist(), dtype=np.float32)
     _association_type = np.array(gt_stats['association_type'].tolist())
-    cell_statistics = {'one-to-one': 0, 'missing': 0, 'over-segmentation': 0, 'under-segmentation': 0, 'many-to-many': 0}
+    if 'tag' in gt_stats.columns:
+        cell_statistics = []
+        tags = pd.unique(gt_stats['tag']).tolist()
+        for i in range(len(tags)):
+            cell_statistics.append({'one-to-one': 0, 'missing': 0, 'over-segmentation': 0, 'under-segmentation': 0, 'many-to-many': 0})
+    else:
+        cell_statistics = {'one-to-one': 0, 'missing': 0, 'over-segmentation': 0, 'under-segmentation': 0, 'many-to-many': 0}
     out_results = out_results.reset_index()
     for index, row in out_results.iterrows():
         gt_instances = row['gt']
         for gt_ins in gt_instances:
-            cell_statistics[row['association_type']] += 1
+            if type(cell_statistics) is list:
+                result = gt_stats[gt_stats['label']==gt_ins]
+                tag = result['tag'].iloc[0]
+                cell_statistics[tags.index(tag)][row['association_type']] += 1
+            else:
+                cell_statistics[row['association_type']] += 1
         if row['association_type'] == 'over-segmentation':
             itemindex = np.where(_labels==gt_instances)
             _counter[itemindex] += 1
@@ -171,7 +182,12 @@ def calculate_associations(pred_file, gt_file, gt_stats_file, final_file, verbos
     gt_stats['counter'] = _counter
     gt_stats['association_counter'] = _association_counter
     gt_stats['association_type'] = _association_type
-    df_out = pd.DataFrame.from_dict({k:[v] for k,v in cell_statistics.items()})
+    if type(cell_statistics) is list:
+        df_out = pd.DataFrame.from_dict([ {k:[v] for k,v in a.items()} for a in cell_statistics] )
+        df_out = df_out.set_axis(tags)
+    else:
+        df_out = pd.DataFrame.from_dict([{k:[v] for k,v in cell_statistics.items()}])
+        df_out = df_out.set_axis(['all'])
 
     # Saving dataframes
     gt_stats.to_csv(final_file)
@@ -202,24 +218,68 @@ def print_association_stats(stats_csv):
     if not os.path.exists(stats_csv):
         raise ValueError('File {} not found. Did you call TIMISE.evaluate()?'.format(stats_csv))
 
-    df_out = pd.read_csv(stats_csv, index_col=False)
-    cell_statistics = {'one-to-one': df_out['one-to-one'][0],
-                       'missing': df_out['missing'][0],
-                       'over-segmentation': df_out['over-segmentation'][0],
-                       'under-segmentation': df_out['under-segmentation'][0],
-                       'many-to-many': df_out['many-to-many'][0]}
-    total_instances = cell_statistics['one-to-one']+cell_statistics['missing'] \
-                      +cell_statistics['over-segmentation']+cell_statistics['under-segmentation'] \
-                      +cell_statistics['many-to-many']
+    df_out = pd.read_csv(stats_csv, index_col=0)
+    total_instances_all = 0
+    df_len = df_out.shape[0]
+    if df_len > 1:
+        max_str_size = 0
+        total_assoc = [0, 0, 0, 0, 0]
 
-    t = PrettyTable([' ',]+list(cell_statistics.keys())+['Total'])
-    t.add_row(['Count',]+list(cell_statistics.values())+[total_instances])
+    for i in range(df_len):
+        total_instances = 0
+        cell_statistics = {}
+        if isinstance(df_out['one-to-one'][i], str):
+            cell_statistics['one-to-one'] = int(df_out['one-to-one'][i][1:][:-1])
+        else:
+            cell_statistics['one-to-one'] = df_out['one-to-one'][i]
+        if isinstance(df_out['missing'][i], str):
+            cell_statistics['missing'] = int(df_out['missing'][i][1:][:-1])
+        else:
+            cell_statistics['missing'] = df_out['missing'][i]
+        if isinstance(df_out['over-segmentation'][i], str):
+            cell_statistics['over-segmentation'] = int(df_out['over-segmentation'][i][1:][:-1])
+        else:
+            cell_statistics['over-segmentation'] = df_out['over-segmentation'][i]
+        if isinstance(df_out['under-segmentation'][i], str):
+            cell_statistics['under-segmentation'] = int(df_out['under-segmentation'][i][1:][:-1])
+        else:
+            cell_statistics['under-segmentation'] = df_out['under-segmentation'][i]
+        if isinstance(df_out['many-to-many'][i], str):
+            cell_statistics['many-to-many'] = int(df_out['many-to-many'][i][1:][:-1])
+        else:
+            cell_statistics['many-to-many'] = df_out['many-to-many'][i]
+        total_instances += cell_statistics['one-to-one']+cell_statistics['missing'] \
+                           +cell_statistics['over-segmentation']+cell_statistics['under-segmentation'] \
+                           +cell_statistics['many-to-many']
+        total_instances_all += total_instances
+        if i == 0:
+            extra_column = ['Tag',] if df_len > 1 else []
+            t = PrettyTable(extra_column+[' ',]+list(cell_statistics.keys())+['Total'])
+        extra_column = [df_out.iloc[i].name,] if df_len > 1 else []
+        t.add_row(extra_column+['Count',]+list(cell_statistics.values())+[total_instances])
 
-    # Percentages
-    cell_statistics = {state: np.around((val/total_instances)*100, 2) for state, val in cell_statistics.items()}
+        if df_len > 1 :
+            total_assoc[0] += cell_statistics['one-to-one']
+            total_assoc[1] += cell_statistics['missing']
+            total_assoc[2] += cell_statistics['over-segmentation']
+            total_assoc[3] += cell_statistics['under-segmentation']
+            total_assoc[4] += cell_statistics['many-to-many']
 
-    t.add_row(['%',]+list(cell_statistics.values())+[' '])
-    print("                                         Associations                                         ")
+            if max_str_size < len(str(df_out.iloc[i].name)):
+                max_str_size = len(str(df_out.iloc[i].name))+3
+
+        # Percentages
+        cell_statistics = {state: np.around((val/total_instances)*100, 2) for state, val in cell_statistics.items()}
+        extra_column = [' ',] if df_len > 1 else []
+        t.add_row(extra_column+['%',]+list(cell_statistics.values())+[' '])
+
+    if df_len > 1:
+        t.add_row(['',]*(3+len(cell_statistics.values()) ))
+        t.add_row(['TOTAL','Count',]+total_assoc+[total_instances_all,])
+        t.add_row([' ','%',]+[np.around((val/total_instances_all)*100, 2) for val in total_assoc]+[total_instances_all,])
+
+    more_space = ' '*int(max_str_size/2) if df_len > 1 else ''
+    print(more_space+"                                         Associations                                         "+more_space)
     print(t)
 
 
@@ -275,3 +335,17 @@ def association_plot_3d(assoc_file, save_path, draw_plane=True, log_x=True, log_
                       zaxis_title='Associations'), autosize=False, width=800, height=800, margin=dict(l=65, r=50, b=65, t=90))
     #fig.show()
     fig.write_image(os.path.join(save_path,username+"_error_3D.svg"))
+
+
+def association_multiple_predictions(prediction_dirs, assoc_stats_file):
+
+    #04:53:13-dfranco@arganda-01:/data2/dfranco/tim2/TIMISE/timise$ cat ../../../test_TIMISE/completo_out_human/VIDAR/associations_stats.csv
+    #,one-to-one,missing,over-segmentation,under-segmentation,many-to-many
+    #small,[4740],[111],[99],[142],[14]
+    #medium,[3368],[59],[70],[109],[2]
+    #large,[154],[1],[5],[4],[0]
+
+    for folder in self.pred_out_dirs:
+        print("Processing folder {}".format(folder))
+        df_analysis = pd.read_csv(os.path.join(folder,assoc_stats_file), index_col=False)
+

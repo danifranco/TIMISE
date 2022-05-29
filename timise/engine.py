@@ -6,7 +6,8 @@ from tqdm import tqdm
 from skimage.io import imread
 
 from .mAP_3Dvolume.mAP_engine import mAP_computation, print_mAP_stats
-from .associations import calculate_associations, print_association_stats, association_plot_2d, association_plot_3d
+from .associations import (calculate_associations, print_association_stats, association_plot_2d, association_plot_3d,
+                           association_multiple_predictions)
 from .utils import Namespace, prepare_files, cable_length, mAP_out_to_dataframe
 
 class TIMISE:
@@ -134,7 +135,7 @@ class TIMISE:
             if not os.path.exists(map_out_file):
                 print("Run mAP code . . .")
                 args = Namespace(gt_seg=self.gt_h5_file, predict_seg=pred_h5_file, predict_score='',
-                                 predict_heatmap_channel=-1, threshold=self.map_th, threshold_crumb=0,
+                                 predict_heatmap_channel=-1, threshold=self.map_th, threshold_crumb=2000,
                                  chunk_size=self.map_chunk_size, output_name=os.path.join(pred_out_dir, "map"),
                                  do_txt=1, do_eval=1, slices=-1, verbose=verbose)
                 mAP_computation(args)
@@ -221,8 +222,7 @@ class TIMISE:
 
         if self.multiple_preds:
             if not split_categories is None:
-                for f in self.pred_out_dirs:
-                    print("Processing folder {}".format(f))
+                association_multiple_predictions(self.pred_out_dirs, self.association_stats_file)
             else:
                 print("??")
 
