@@ -138,11 +138,11 @@ def print_mAP_stats(stats_file):
             line = line.split()
             if "IoU=0.50:0.95" in line:
                 values[0] = float(line[-1])
-            elif "IoU=0.50" in line:
+            elif "IoU=0.50" in line and 'all' in line:
                 values[1] = float(line[-1])
-            elif "IoU=0.75" in line:
+            elif "IoU=0.75" in line and 'all' in line:
                 values[2] = float(line[-1])
-            elif "IoU=0.90" in line:
+            elif "IoU=0.90" in line and 'all' in line:
                 values[3] = float(line[-1])
 
     columns = ['IoU=0.50:0.95', 'IoU=0.50', 'IoU=0.75', 'IoU=0.90']
