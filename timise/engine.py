@@ -182,7 +182,7 @@ class TIMISE:
 
 
     def plot(self, plot_type='error_2d', individual_plots=False, nbins=30, draw_std=True, color_by="association_type",
-             symbol="tag", draw_plane=True, log_x=True, log_y=True):
+             symbol="tag", draw_plane=True, log_x=True, log_y=True, order=[]):
         """Plot errors in different formats. When multiple predictions are available a common plot is created.
 
            Parameters
@@ -221,8 +221,8 @@ class TIMISE:
         assert symbol in ['association_type', 'tag']
 
         if self.multiple_preds:
-            if not split_categories is None:
-                association_multiple_predictions(self.pred_out_dirs, self.association_stats_file)
+            if not self.split_categories is None:
+                association_multiple_predictions(self.pred_out_dirs, self.association_stats_file, order=order)
             else:
                 print("??")
 

@@ -337,15 +337,44 @@ def association_plot_3d(assoc_file, save_path, draw_plane=True, log_x=True, log_
     fig.write_image(os.path.join(save_path,username+"_error_3D.svg"))
 
 
-def association_multiple_predictions(prediction_dirs, assoc_stats_file):
+def association_multiple_predictions(prediction_dirs, assoc_stats_file, order=[]):
+    dataframes = []
+    for folder in prediction_dirs:
+        df_method = pd.read_csv(os.path.join(folder,assoc_stats_file), index_col=0)
+        df_method['method'] = os.path.basename(folder)
+        dataframes.append(df_method)
 
-    #04:53:13-dfranco@arganda-01:/data2/dfranco/tim2/TIMISE/timise$ cat ../../../test_TIMISE/completo_out_human/VIDAR/associations_stats.csv
-    #,one-to-one,missing,over-segmentation,under-segmentation,many-to-many
-    #small,[4740],[111],[99],[142],[14]
-    #medium,[3368],[59],[70],[109],[2]
-    #large,[154],[1],[5],[4],[0]
+        if 'ntags' not in locals():
+            ntags = df_method.shape[0]
+            tags_names = [df_method.iloc[i].name for i in range(ntags)]
 
-    for folder in self.pred_out_dirs:
-        print("Processing folder {}".format(folder))
-        df_analysis = pd.read_csv(os.path.join(folder,assoc_stats_file), index_col=False)
+    df = pd.concat([val for val in dataframes])
+    df = df.sort_values(by=['method'], ascending=False)
 
+    # Change strings to integers
+    df["one-to-one"] = df["one-to-one"].str[1:-1].astype(int)
+    df["missing"] = df["missing"].str[1:-1].astype(int)
+    df["over-segmentation"] = df["over-segmentation"].str[1:-1].astype(int)
+    df["under-segmentation"] = df["under-segmentation"].str[1:-1].astype(int)
+    df["many-to-many"] = df["many-to-many"].str[1:-1].astype(int)
+
+    if len(order)>1:
+        df['position'] = 0
+        for i, name in enumerate(order):
+            df.loc[df['method'] == name, 'position'] = i
+        df = df.sort_values(by=['position'], ascending=True)
+
+    # Order colors
+    colors = px.colors.qualitative.Plotly
+    tmp = colors[0]
+    colors[0] = colors[2]
+    colors[2] = tmp
+
+    for i in range(ntags):
+        fig = px.bar(df.loc[tags_names[i]], x="method", y=["one-to-one", "missing", "over-segmentation",
+                     "under-segmentation", "many-to-many"], title="Association performance comparison",
+                     color_discrete_sequence=colors, labels={'method':'Methods', 'value':'Number of instances'})
+        fig.update_layout(legend=dict(orientation="h", yanchor="bottom", y=1.005, xanchor="right", x=0.835, title_text='',
+                                      font=dict(size=11)))
+        #fig.show()
+        fig.write_image(os.path.join(os.path.dirname(folder),"all_methods_"+tags_names[i]+"_errors.svg"))
