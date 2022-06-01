@@ -105,12 +105,7 @@ class TIMISE:
         # GT statistics #
         #################
         gt_stats_out_file = os.path.join(out_dir, self.stats_gt_out_filename)
-        if not os.path.exists(gt_stats_out_file):
-            print("Calculating GT statistics . . .")
-            self._get_file_statistics(self.gt_tif_file, gt_stats_out_file)
-        else:
-            print("Skipping GT statistics calculation (seems to be done here: {} )".format(gt_stats_out_file))
-
+        self._get_file_statistics(self.gt_tif_file, gt_stats_out_file)
 
         print("*** Evaluating . . .")
         for n, id_ in enumerate(pfolder_ids):
@@ -242,43 +237,50 @@ class TIMISE:
 
     def _get_file_statistics(self, input_file, out_csv_file):
         """Calculate instances statistics such as volume, skeleton size and cable length."""
-        if self.verbose: print("Reading file {} . . .".format(input_file))
-        img = imread(input_file)
+        if not os.path.exists(out_csv_file):
+            print("Calculating GT statistics . . .")
+            if self.verbose: print("Reading file {} . . .".format(input_file))
+            img = imread(input_file)
 
-        if self.verbose: print("Calculating volumes . . .")
-        values, volumes = np.unique(img, return_counts=True)
-        values=values[1:].tolist()
-        volumes=volumes[1:]
+            if self.verbose: print("Calculating volumes . . .")
+            values, volumes = np.unique(img, return_counts=True)
+            values=values[1:].tolist()
+            volumes=volumes[1:]
 
-        if self.verbose: print("Skeletonizing . . .")
-        skels = kimimaro.skeletonize(img, parallel=0, parallel_chunk_size=100, dust_threshold=0)
-        keys = list(skels.keys())
-        self.verbose: print("Create skeleton image . . .")
-        s = img.shape
-        del img
-        out = np.zeros(s, dtype=np.uint16)
-        c_length = []
-        for label in keys:
-            ind_skel = skels[label]
-            vertices = ind_skel.vertices
+            if self.verbose: print("Skeletonizing . . .")
+            skels = kimimaro.skeletonize(img, parallel=0, parallel_chunk_size=100, dust_threshold=0)
+            keys = list(skels.keys())
+            if self.verbose: print("Create skeleton image . . .")
+            s = img.shape
+            del img
+            out = np.zeros(s, dtype=np.uint16)
+            c_length = []
+            for label in keys:
+                ind_skel = skels[label]
+                vertices = ind_skel.vertices
 
-            # Fill skeleton image
-            for i in range(len(vertices)):
-                v = vertices[i]
-                z, x, y = int(v[0]), int(v[1]), int(v[2])
-                out[z,x,y] = label
+                # Fill skeleton image
+                for i in range(len(vertices)):
+                    v = vertices[i]
+                    z, x, y = int(v[0]), int(v[1]), int(v[2])
+                    out[z,x,y] = label
 
-            # Cable length
-            l = cable_length(ind_skel.vertices, ind_skel.edges, res = self.data_resolution)
-            c_length.append(l)
+                # Cable length
+                l = cable_length(ind_skel.vertices, ind_skel.edges, res = self.data_resolution)
+                c_length.append(l)
 
-        self.verbose: print("Obtaining skeleton size . . .")
-        _, skel_sizes = np.unique(out, return_counts=True)
-        skel_size=skel_sizes[1:]
+            self.verbose: print("Obtaining skeleton size . . .")
+            _, skel_sizes = np.unique(out, return_counts=True)
+            skel_size=skel_sizes[1:]
 
-        data_tuples = list(zip(values,volumes,skel_size,c_length))
-        dataframe = pd.DataFrame(data_tuples, columns=['label','volume','skel_size','cable_length'])
-        if not self.split_categories is None:
+            data_tuples = list(zip(values,volumes,skel_size,c_length))
+            dataframe = pd.DataFrame(data_tuples, columns=['label','volume','skel_size','cable_length'])
+        else:
+            print("Skipping GT statistics calculation (seems to be done here: {} )".format(out_csv_file))
+            dataframe = pd.read_csv(out_csv_file, index_col=False)
+
+        if not self.split_categories is None and not 'tags' in dataframe.columns:
+            if self.verbose: print("Adding tags information . . .")
             dataframe['tag'] = self.split_categories[0]
             for i in range(len(self.split_ths)):
                 dataframe.loc[dataframe[self.split_property] >= self.split_ths[i], "tag"] = self.split_categories[i+1]
