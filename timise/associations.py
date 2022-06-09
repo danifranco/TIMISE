@@ -1,4 +1,5 @@
 import os
+import statistics
 import pandas as pd
 import numpy as np
 import networkx as nx
@@ -12,7 +13,8 @@ import plotly.express as px
 
 def calculate_associations(pred_file, gt_file, gt_stats_file, final_file, verbose=True):
     """Calculate associations between instances. Based on the work presented in `Assessment of deep learning
-       algorithms for 3D instance segmentation of confocal image datasets <https://www.biorxiv.org/content/10.1101/2021.06.09.447748v1.full>`_.
+       algorithms for 3D instance segmentation of confocal image datasets 
+       <https://www.biorxiv.org/content/10.1101/2021.06.09.447748v1.full>`_.
        Code `here <https://mosaic.gitlabpages.inria.fr/publications/seg_compare/evaluation.html>`_.
 
        Parameters
@@ -213,7 +215,13 @@ def lab_association(row):
 
 
 def print_association_stats(stats_csv):
-    """Print association statistics."""
+    """Print association statistics.
+
+       Parameters
+       ----------
+       stats_csv : str
+           Path where the statistics of the associations are stored.
+    """
 
     if not os.path.exists(stats_csv):
         raise ValueError('File {} not found. Did you call TIMISE.evaluate()?'.format(stats_csv))
@@ -221,6 +229,8 @@ def print_association_stats(stats_csv):
     df_out = pd.read_csv(stats_csv, index_col=0)
     total_instances_all = 0
     df_len = df_out.shape[0]
+
+    # If more than one line found means that the user selected to split into categories 
     if df_len > 1:
         max_str_size = 0
         total_assoc = [0, 0, 0, 0, 0]
@@ -283,44 +293,119 @@ def print_association_stats(stats_csv):
     print(t)
 
 
-def association_plot_2d(assoc_file, save_path, bins=30, draw_std=True, log_x=False, log_y=False):
-    """Plot 2D errors."""
-    df = pd.read_csv(assoc_file, index_col=False)
+def association_plot_2d(final_file, save_path, show=True, bins=30, draw_std=True, log_x=False, log_y=False, shape=[1100,500]):
+    """Plot 2D errors.
+    
+       Parameters
+       ----------
+       final_file : str
+           Path to the final statistics file.
 
+       save_path : str
+           Directory to store the plot into. 
+
+       show : bool, optional
+           Wheter to show or not the plot after saving. 
+
+       bins : int, optional
+           Defines the number of equal-width bins to create when creating the plot. 
+    
+       draw_std : bool, optional
+           Whether to draw or not standar deviation of y axis.
+
+       log_x : bool, optional
+           True to apply log in 'x' axis. 
+
+       log_y : bool, optional
+           True to apply log in 'y' axis. 
+
+       shape : 2d array of ints, optional
+           Defines the shape of the plot.
+    """
+
+    df = pd.read_csv(final_file, index_col=False)
+    
     X = np.array(df['cable_length'].tolist(), dtype=float).tolist()
     Z = np.array(df['association_counter'].tolist(), dtype=float).tolist()
 
-    binx= np.linspace(df['cable_length'].min(), df['cable_length'].max(), bins, dtype=float)
-    binz= np.linspace(df['association_counter'].min(), df['association_counter'].max(), bins, dtype=float)
-    ret = stats.binned_statistic_2d(X, Z, X, 'mean', bins=[binx, binz], expand_binnumbers=True)
-    ret_size = stats.binned_statistic(Z, Z, 'count', bins=binz)
-    ret_std = stats.binned_statistic(Z, Z, 'std', bins=binz)
+    ret_x, bin_edges, binnumber = stats.binned_statistic(X, X, 'mean', bins=bins)
+    size = stats.binned_statistic(X, X, 'count', bins=bins).statistic
+    df['binnumber'] = binnumber
+    ret_y = []
+    std = [] if draw_std else np.zeros((len(binnumber)),dtype=int)
+    for i in range(1,bins+1):
+        r = df.loc[df['binnumber'] == i, 'association_counter']   
+        if r.shape[0] == 0:
+            ret_y.append(0) 
+        else:
+            ret_y.append(statistics.mean(r))
+        
+        # collect std
+        if draw_std:
+            r = df.loc[df['binnumber'] == i, 'association_counter']
+            if r.shape[0] < 2:
+                std.append(0) 
+            else:
+                std.append(statistics.stdev(r))        
 
-    username = os.path.basename(save_path)
-    data_tuples = list(zip(ret.x_edge, ret.y_edge, np.log(ret_size.statistic +1)*50, ret_std.statistic))
+    # Create dataframe for the plot
+    data_tuples = list( zip( np.nan_to_num(ret_x), np.nan_to_num(ret_y), np.log(size+1)*50, std ) )
     df2 = pd.DataFrame(data_tuples, columns=['cable_length','association_counter', 'bin_counter', 'stdev_assoc'])
     error_y = 'stdev_assoc' if draw_std else None
-    fig = px.scatter(df2, x="cable_length", y="association_counter", size="bin_counter", color="association_counter",
-                     error_y=error_y, log_x=log_x, log_y=log_y, title=username+' - Error analysis')
+
+    # Plot 
+    username = os.path.basename(save_path)
+    fig = px.scatter(df2, x="cable_length", y="association_counter", color="association_counter",size="bin_counter",
+                        error_y=error_y, log_x=log_x, log_y=log_y, title=username+' - Error analysis',
+                        color_continuous_scale=px.colors.sequential.Bluered)
     fig.layout.showlegend = False
     fig.update(layout_coloraxis_showscale=False)
+    fig.update_layout(font=dict(size=25))
 
-    #fig.show()
-    fig.write_image(os.path.join(save_path,username+"_error.svg"))
+    fig.write_image(os.path.join(save_path,username+"_error.svg"), width=shape[0], height=shape[1])
+    if show:
+      fig.show()  
 
 
-def association_plot_3d(assoc_file, save_path, draw_plane=True, log_x=True, log_y=True, color="association_type",
-                        symbol="tag"):
-    """Plot 3D errors."""
+def association_plot_3d(assoc_file, save_path, show=True, draw_plane=True, log_x=True, log_y=True, color="association_type",
+                        symbol="tag", shape=[800,800]):
+    """Plot 3D errors.
+    
+       Parameters
+       ----------
+       assoc_file : str
+           Path where to the association file. 
+
+       save_path : str
+           Directory to store the plot into. 
+
+       show : bool, optional
+           Wheter to show or not the plot after saving. 
+
+       draw_plane : bool, optional
+           Wheter to draw or not the plane in z=0 to see better the 'over' and 'under' segmentations. 
+
+       log_x : bool, optional
+           True to apply log in 'x' axis. 
+
+       log_y : bool, optional
+           True to apply log in 'y' axis. 
+    
+       color : str, optional
+           Property to based the color selection. 
+
+       symbol : str, optional
+           Property to based the symbol selection. 
+
+       shape : 2d array of ints, optional
+           Defines the shape of the plot.
+    """
+
     axis_propety = ['volume','cable_length','association_counter']
-    #seq = ['red', 'green', 'blue','magenta']
-    #sseq = ['circle-open', 'diamond', 'cross']
-    seq = None
-    sseq = None
 
     df = pd.read_csv(assoc_file, index_col=False)
     fig = px.scatter_3d(df, x=axis_propety[0], y=axis_propety[1], z=axis_propety[2], color=color,
-                        color_discrete_sequence=seq, symbol_sequence=sseq, symbol=symbol, log_x=log_x, log_y=log_y)
+                        symbol=symbol, log_x=log_x, log_y=log_y)
 
     if draw_plane:
         height = 0
@@ -332,18 +417,43 @@ def association_plot_3d(assoc_file, save_path, draw_plane=True, log_x=True, log_
 
     username = os.path.basename(save_path)
     fig.update_layout(title=username+' - Error analysis', scene = dict(xaxis_title='Volume', yaxis_title='Cable length',
-                      zaxis_title='Associations'), autosize=False, width=800, height=800, margin=dict(l=65, r=50, b=65, t=90))
-    #fig.show()
+                      zaxis_title='Associations'), autosize=False, width=shape[0], height=shape[1],
+                      margin=dict(l=65, r=50, b=65, t=90), font=dict(size=25))
+
     fig.write_image(os.path.join(save_path,username+"_error_3D.svg"))
+    if show:
+      fig.show()
 
 
-def association_multiple_predictions(prediction_dirs, assoc_stats_file, order=[]):
+def association_multiple_predictions(prediction_dirs, assoc_stats_file, show=True, order=[], shape=[1100,500]):
+    """Create a plot that gather multiple prediction information.
+    
+       Parameters
+       ----------
+       prediction_dirs : str
+           Directory where all the predictions folders are placed. 
+
+       assoc_stats_file : str
+           Name of the association stats file. 
+
+       show : bool, optional
+           Wheter to show or not the plot after saving. 
+
+       order : list of str, optional
+           Order each prediction based on a given list. The names need to match the names used for
+           each prediction folder. E.g ['prediction1', 'prediction2'].
+
+       shape : 2d array of ints, optional
+           Defines the shape of the plot.
+    """
+
     dataframes = []
     for folder in prediction_dirs:
         df_method = pd.read_csv(os.path.join(folder,assoc_stats_file), index_col=0)
         df_method['method'] = os.path.basename(folder)
         dataframes.append(df_method)
 
+        # Initialize in the first loop 
         if 'ntags' not in locals():
             ntags = df_method.shape[0]
             tags_names = [df_method.iloc[i].name for i in range(ntags)]
@@ -370,11 +480,16 @@ def association_multiple_predictions(prediction_dirs, assoc_stats_file, order=[]
     colors[0] = colors[2]
     colors[2] = tmp
 
+    # Create a plot for each type of category 
     for i in range(ntags):
         fig = px.bar(df.loc[tags_names[i]], x="method", y=["one-to-one", "missing", "over-segmentation",
                      "under-segmentation", "many-to-many"], title="Association performance comparison",
                      color_discrete_sequence=colors, labels={'method':'Methods', 'value':'Number of instances'})
         fig.update_layout(legend=dict(orientation="h", yanchor="bottom", y=1.005, xanchor="right", x=0.835, title_text='',
-                                      font=dict(size=11)))
-        #fig.show()
-        fig.write_image(os.path.join(os.path.dirname(folder),"all_methods_"+tags_names[i]+"_errors.svg"))
+                                      font=dict(size=13)), font=dict(size=22))
+        fig.update_xaxes(tickangle=45)
+        fig.write_image(os.path.join(os.path.dirname(folder),"all_methods_"+tags_names[i]+"_errors.svg"),
+                        width=shape[0], height=shape[1])
+        if show:
+            fig.show()
+

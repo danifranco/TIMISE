@@ -105,6 +105,7 @@ class TIMISE:
         # GT statistics #
         #################
         gt_stats_out_file = os.path.join(out_dir, self.stats_gt_out_filename)
+        print("Calculating GT statistics . . .")
         self._get_file_statistics(self.gt_tif_file, gt_stats_out_file)
 
         print("*** Evaluating . . .")
@@ -176,8 +177,8 @@ class TIMISE:
             print_association_stats(os.path.join(f, self.association_stats_file))
 
 
-    def plot(self, plot_type='error_2d', individual_plots=False, nbins=30, draw_std=True, color_by="association_type",
-             symbol="tag", draw_plane=True, log_x=True, log_y=True, order=[]):
+    def plot(self, plot_type='error_2d', show=True, individual_plots=False, nbins=30, draw_std=True, color_by="association_type",
+             symbol="tag", draw_plane=True, log_x=False, log_y=False, order=[], plot_shape=[1100,500]):
         """Plot errors in different formats. When multiple predictions are available a common plot is created.
 
            Parameters
@@ -188,6 +189,9 @@ class TIMISE:
            individual_plots: bool, optional
                Force the creation of individual error plots (2D and 3D) apart of the common plot when multiple
                predictions are available.
+
+           show : bool, optional
+               Wheter to show or not the plot after saving.
 
            nbins : int, optional
                Number of bins to gather the values into. Only applied when plot_type is 'error_2d'.
@@ -209,28 +213,38 @@ class TIMISE:
 
            log_y : bool, optional
                Wheter to apply log into x axis. Applied when plot_type is 'error_2d' or 'error_3d'.
+
+           order : list of str, optional
+               Order each prediction based on a given list. The names need to match the names used for
+               each prediction folder. E.g ['prediction1', 'prediction2'].
+
+           plot_shape : 2d array of ints, optional
+               Defines the shape of the plot.
         """
 
         assert plot_type in ['error_2d', 'error_3d']
         assert color_by in ['association_type', 'tag']
         assert symbol in ['association_type', 'tag']
+        if len(plot_shape) != 2:
+            raise ValueError("'plot_shape' needs to have 2 values: [width, height]")
 
         if self.multiple_preds:
             if not self.split_categories is None:
-                association_multiple_predictions(self.pred_out_dirs, self.association_stats_file, order=order)
+                association_multiple_predictions(self.pred_out_dirs, self.association_stats_file, show=show,
+                                                 order=order, shape=plot_shape)
             else:
                 print("??")
 
         if individual_plots or not self.multiple_preds:
             if not self.split_categories is None:
-                assoc_file = os.path.join(self.pred_out_dirs[0], self.final_errors_file)
+                final_file = os.path.join(self.pred_out_dirs[0], self.final_errors_file)
                 if plot_type == 'error_3d':
-                    association_plot_3d(assoc_file, self.pred_out_dirs[0], draw_plane=draw_plane, log_x=log_x,
-                                        log_y=log_y, color=color_by, symbol=symbol)
+                    association_plot_3d(final_file, self.pred_out_dirs[0], show=show, draw_plane=draw_plane,
+                                        log_x=log_x, log_y=log_y, color=color_by, symbol=symbol, shape=plot_shape)
                     # color = tag , symbol = association_type
                 elif plot_type == 'error_2d':
-                    association_plot_2d(assoc_file, self.pred_out_dirs[0], log_x=log_x, log_y=log_y, bins=nbins,
-                                        draw_std=draw_std)
+                    association_plot_2d(final_file, self.pred_out_dirs[0], show=show, log_x=log_x, log_y=log_y,
+                                        bins=nbins, draw_std=draw_std, shape=plot_shape)
             else:
                 print("??")
 
@@ -238,7 +252,6 @@ class TIMISE:
     def _get_file_statistics(self, input_file, out_csv_file):
         """Calculate instances statistics such as volume, skeleton size and cable length."""
         if not os.path.exists(out_csv_file):
-            print("Calculating GT statistics . . .")
             if self.verbose: print("Reading file {} . . .".format(input_file))
             img = imread(input_file)
 
@@ -250,28 +263,18 @@ class TIMISE:
             if self.verbose: print("Skeletonizing . . .")
             skels = kimimaro.skeletonize(img, parallel=0, parallel_chunk_size=100, dust_threshold=0)
             keys = list(skels.keys())
-            if self.verbose: print("Create skeleton image . . .")
-            s = img.shape
+            if self.verbose: print("Calculating cable length . . .")
             del img
-            out = np.zeros(s, dtype=np.uint16)
             c_length = []
+            skel_size = []
             for label in keys:
                 ind_skel = skels[label]
                 vertices = ind_skel.vertices
 
-                # Fill skeleton image
-                for i in range(len(vertices)):
-                    v = vertices[i]
-                    z, x, y = int(v[0]), int(v[1]), int(v[2])
-                    out[z,x,y] = label
-
                 # Cable length
                 l = cable_length(ind_skel.vertices, ind_skel.edges, res = self.data_resolution)
                 c_length.append(l)
-
-            self.verbose: print("Obtaining skeleton size . . .")
-            _, skel_sizes = np.unique(out, return_counts=True)
-            skel_size=skel_sizes[1:]
+                skel_size.append(ind_skel.vertices.shape[0])
 
             data_tuples = list(zip(values,volumes,skel_size,c_length))
             dataframe = pd.DataFrame(data_tuples, columns=['label','volume','skel_size','cable_length'])
