@@ -258,7 +258,7 @@ class TIMISE:
             if self.verbose: print("Calculating volumes . . .")
             values, volumes = np.unique(img, return_counts=True)
             values=values[1:].tolist()
-            volumes=volumes[1:]
+            volumes=volumes[1:].tolist()
 
             if self.verbose: print("Skeletonizing . . .")
             skels = kimimaro.skeletonize(img, parallel=0, parallel_chunk_size=100, dust_threshold=0)
@@ -267,6 +267,7 @@ class TIMISE:
             del img
             c_length = []
             skel_size = []
+            vol = []
             for label in keys:
                 ind_skel = skels[label]
                 vertices = ind_skel.vertices
@@ -275,8 +276,9 @@ class TIMISE:
                 l = cable_length(ind_skel.vertices, ind_skel.edges, res = self.data_resolution)
                 c_length.append(l)
                 skel_size.append(ind_skel.vertices.shape[0])
+                vol.append(volumes[values.index(label)])
 
-            data_tuples = list(zip(values,volumes,skel_size,c_length))
+            data_tuples = list(zip(keys,vol,skel_size,c_length))
             dataframe = pd.DataFrame(data_tuples, columns=['label','volume','skel_size','cable_length'])
         else:
             print("Skipping GT statistics calculation (seems to be done here: {} )".format(out_csv_file))
