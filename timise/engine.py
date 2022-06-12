@@ -182,7 +182,7 @@ class TIMISE:
 
 
     def plot(self, plot_type='error_2d', show=True, individual_plots=False, nbins=30, draw_std=True, color_by="association_type",
-             symbol="tag", draw_plane=True, log_x=False, log_y=False, order=[], plot_shape=[1100,500]):
+             symbol="category", draw_plane=True, log_x=False, log_y=False, order=[], plot_shape=[1100,500]):
         """Plot errors in different formats. When multiple predictions are available a common plot is created.
 
            Parameters
@@ -227,8 +227,8 @@ class TIMISE:
         """
 
         assert plot_type in ['error_2d', 'error_3d']
-        assert color_by in ['association_type', 'tag']
-        assert symbol in ['association_type', 'tag']
+        assert color_by in ['association_type', 'category']
+        assert symbol in ['association_type', 'category']
         if len(plot_shape) != 2:
             raise ValueError("'plot_shape' needs to have 2 values: [width, height]")
 
@@ -286,11 +286,11 @@ class TIMISE:
             print("Skipping GT statistics calculation (seems to be done here: {} )".format(out_csv_file))
             dataframe = pd.read_csv(out_csv_file, index_col=False)
 
-        if not self.split_categories is None and not 'tags' in dataframe.columns:
-            if self.verbose: print("Adding tags information . . .")
-            dataframe['tag'] = self.split_categories[0]
+        if not self.split_categories is None and not 'categories' in dataframe.columns:
+            if self.verbose: print("Adding categories information . . .")
+            dataframe['category'] = self.split_categories[0]
             for i in range(len(self.split_ths)):
-                dataframe.loc[dataframe[self.split_property] >= self.split_ths[i], "tag"] = self.split_categories[i+1]
+                dataframe.loc[dataframe[self.split_property] >= self.split_ths[i], "category"] = self.split_categories[i+1]
             dataframe = dataframe.sort_values(by=[self.split_property])
         else:
             dataframe = dataframe.sort_values(by=['volume'])

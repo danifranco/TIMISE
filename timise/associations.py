@@ -127,10 +127,10 @@ def calculate_associations(pred_file, gt_file, gt_stats_file, final_file, verbos
     _counter = np.array(gt_stats['counter'].tolist())
     _association_counter = np.array(gt_stats['association_counter'].tolist(), dtype=np.float32)
     _association_type = np.array(gt_stats['association_type'].tolist())
-    if 'tag' in gt_stats.columns:
+    if 'category' in gt_stats.columns:
         cell_statistics = []
-        tags = pd.unique(gt_stats['tag']).tolist()
-        for i in range(len(tags)):
+        categories = pd.unique(gt_stats['category']).tolist()
+        for i in range(len(categories)):
             cell_statistics.append({'one-to-one': 0, 'missing': 0, 'over-segmentation': 0, 'under-segmentation': 0, 'many-to-many': 0})
     else:
         cell_statistics = {'one-to-one': 0, 'missing': 0, 'over-segmentation': 0, 'under-segmentation': 0, 'many-to-many': 0}
@@ -140,8 +140,8 @@ def calculate_associations(pred_file, gt_file, gt_stats_file, final_file, verbos
         for gt_ins in gt_instances:
             if type(cell_statistics) is list:
                 result = gt_stats[gt_stats['label']==gt_ins]
-                tag = result['tag'].iloc[0]
-                cell_statistics[tags.index(tag)][row['association_type']] += 1
+                tag = result['category'].iloc[0]
+                cell_statistics[categories.index(tag)][row['association_type']] += 1
             else:
                 cell_statistics[row['association_type']] += 1
         if row['association_type'] == 'over-segmentation':
@@ -186,7 +186,7 @@ def calculate_associations(pred_file, gt_file, gt_stats_file, final_file, verbos
     gt_stats['association_type'] = _association_type
     if type(cell_statistics) is list:
         df_out = pd.DataFrame.from_dict([ {k:[v] for k,v in a.items()} for a in cell_statistics] )
-        df_out = df_out.set_axis(tags)
+        df_out = df_out.set_axis(categories)
     else:
         df_out = pd.DataFrame.from_dict([{k:[v] for k,v in cell_statistics.items()}])
         df_out = df_out.set_axis(['all'])
@@ -266,7 +266,7 @@ def print_association_stats(stats_csv, show_categories=False):
                            +cell_statistics['many-to-many']
         total_instances_all += total_instances
         if i == 0:
-            extra_column = ['Tag',] if df_len > 1 else []
+            extra_column = ['category',] if df_len > 1 else []
             t = PrettyTable(extra_column+[' ',]+list(cell_statistics.keys())+['Total'])
         extra_column = [df_out.iloc[i].name,] if df_len > 1 else []
         t.add_row(extra_column+['Count',]+list(cell_statistics.values())+[total_instances])
@@ -376,7 +376,7 @@ def association_plot_2d(final_file, save_path, show=True, bins=30, draw_std=True
 
 
 def association_plot_3d(assoc_file, save_path, show=True, draw_plane=True, log_x=True, log_y=True, color="association_type",
-                        symbol="tag", shape=[800,800]):
+                        symbol="category", shape=[800,800]):
     """Plot 3D errors.
     
        Parameters
@@ -462,9 +462,9 @@ def association_multiple_predictions(prediction_dirs, assoc_stats_file, show=Tru
         dataframes.append(df_method)
 
         # Initialize in the first loop 
-        if 'ntags' not in locals():
-            ntags = df_method.shape[0]
-            tags_names = [df_method.iloc[i].name for i in range(ntags)]
+        if 'ncategories' not in locals():
+            ncategories = df_method.shape[0]
+            categories_names = [df_method.iloc[i].name for i in range(ncategories)]
 
     df = pd.concat([val for val in dataframes])
     df = df.sort_values(by=['method'], ascending=False)
@@ -489,14 +489,14 @@ def association_multiple_predictions(prediction_dirs, assoc_stats_file, show=Tru
     colors[2] = tmp
 
     # Create a plot for each type of category 
-    for i in range(ntags):
-        fig = px.bar(df.loc[tags_names[i]], x="method", y=["one-to-one", "missing", "over-segmentation",
+    for i in range(ncategories):
+        fig = px.bar(df.loc[categories_names[i]], x="method", y=["one-to-one", "missing", "over-segmentation",
                      "under-segmentation", "many-to-many"], title="Association performance comparison",
                      color_discrete_sequence=colors, labels={'method':'Methods', 'value':'Number of instances'})
         fig.update_layout(legend=dict(orientation="h", yanchor="bottom", y=1.005, xanchor="right", x=0.835, title_text='',
                                       font=dict(size=13)), font=dict(size=22))
         fig.update_xaxes(tickangle=45)
-        fig.write_image(os.path.join(os.path.dirname(folder),"all_methods_"+tags_names[i]+"_errors.svg"),
+        fig.write_image(os.path.join(os.path.dirname(folder),"all_methods_"+categories_names[i]+"_errors.svg"),
                         width=shape[0], height=shape[1])
         if show:
             fig.show()
