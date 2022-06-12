@@ -33,6 +33,7 @@ class TIMISE:
         """
 
         if not split_categories is None:
+            self.show_categories = True
             if not split_property is None:
                 assert split_property in ['volume', 'skel_size', 'cable_length']
             else:
@@ -42,6 +43,8 @@ class TIMISE:
                     raise ValueError("'split_ths' needs to be one less in length than 'split_categories'")
             else:
                 raise ValueError("'split_ths' can not be None while setting 'split_categories'")
+        else:
+            self.show_categories = False
 
         self.split_categories = split_categories
         self.split_property = split_property
@@ -73,6 +76,7 @@ class TIMISE:
         self.final_errors_file = "gt_final.csv"
 
         self.pred_out_dirs = []
+
 
     def evaluate(self, pred_dir, gt_dir, out_dir, data_resolution=[30,8,8], verbose=True):
         self.data_resolution = data_resolution
@@ -174,7 +178,7 @@ class TIMISE:
             print('')
             print_mAP_stats(os.path.join(f, self.map_stats_file))
             print('')
-            print_association_stats(os.path.join(f, self.association_stats_file))
+            print_association_stats(os.path.join(f, self.association_stats_file), self.show_categories)
 
 
     def plot(self, plot_type='error_2d', show=True, individual_plots=False, nbins=30, draw_std=True, color_by="association_type",
@@ -233,6 +237,7 @@ class TIMISE:
                 association_multiple_predictions(self.pred_out_dirs, self.association_stats_file, show=show,
                                                  order=order, shape=plot_shape)
             else:
+                # Association without categories. same function
                 print("??")
 
         if individual_plots or not self.multiple_preds:
@@ -241,12 +246,9 @@ class TIMISE:
                 if plot_type == 'error_3d':
                     association_plot_3d(final_file, self.pred_out_dirs[0], show=show, draw_plane=draw_plane,
                                         log_x=log_x, log_y=log_y, color=color_by, symbol=symbol, shape=plot_shape)
-                    # color = tag , symbol = association_type
                 elif plot_type == 'error_2d':
                     association_plot_2d(final_file, self.pred_out_dirs[0], show=show, log_x=log_x, log_y=log_y,
                                         bins=nbins, draw_std=draw_std, shape=plot_shape)
-            else:
-                print("??")
 
 
     def _get_file_statistics(self, input_file, out_csv_file):

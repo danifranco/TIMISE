@@ -214,13 +214,16 @@ def lab_association(row):
             return 'many-to-many'
 
 
-def print_association_stats(stats_csv):
+def print_association_stats(stats_csv, show_categories=False):
     """Print association statistics.
 
        Parameters
        ----------
        stats_csv : str
            Path where the statistics of the associations are stored.
+        
+       show_categories : bool, optional
+           Whether to print one row per category or just all the instances together. 
     """
 
     if not os.path.exists(stats_csv):
@@ -283,12 +286,17 @@ def print_association_stats(stats_csv):
         extra_column = [' ',] if df_len > 1 else []
         t.add_row(extra_column+['%',]+list(cell_statistics.values())+[' '])
 
-    if df_len > 1:
+    if df_len > 1 and show_categories:
         t.add_row(['',]*(3+len(cell_statistics.values()) ))
         t.add_row(['TOTAL','Count',]+total_assoc+[total_instances_all,])
         t.add_row([' ','%',]+[np.around((val/total_instances_all)*100, 2) for val in total_assoc]+[total_instances_all,])
+        more_space = ' '*int(max_str_size/2)
+    else:
+        t = PrettyTable([' ',]+list(cell_statistics.keys())+['Total'])
+        t.add_row(['Count',]+total_assoc+[total_instances_all,])
+        t.add_row(['%',]+[np.around((val/total_instances_all)*100, 2) for val in total_assoc]+[total_instances_all,])
+        more_space = ''
 
-    more_space = ' '*int(max_str_size/2) if df_len > 1 else ''
     print(more_space+"                                         Associations                                         "+more_space)
     print(t)
 
