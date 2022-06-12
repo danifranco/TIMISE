@@ -433,7 +433,8 @@ def association_plot_3d(assoc_file, save_path, show=True, draw_plane=True, log_x
       fig.show()
 
 
-def association_multiple_predictions(prediction_dirs, assoc_stats_file, show=True, order=[], shape=[1100,500]):
+def association_multiple_predictions(prediction_dirs, assoc_stats_file, show=True, show_categories=False, 
+                                     order=[], shape=[1100,500]):
     """Create a plot that gather multiple prediction information.
     
        Parameters
@@ -446,6 +447,9 @@ def association_multiple_predictions(prediction_dirs, assoc_stats_file, show=Tru
 
        show : bool, optional
            Wheter to show or not the plot after saving. 
+
+       show_categories :  bool, optional
+           Whether to create a plot per category or just one. 
 
        order : list of str, optional
            Order each prediction based on a given list. The names need to match the names used for
@@ -487,16 +491,30 @@ def association_multiple_predictions(prediction_dirs, assoc_stats_file, show=Tru
     tmp = colors[0]
     colors[0] = colors[2]
     colors[2] = tmp
-
-    # Create a plot for each type of category 
-    for i in range(ncategories):
-        fig = px.bar(df.loc[categories_names[i]], x="method", y=["one-to-one", "missing", "over-segmentation",
-                     "under-segmentation", "many-to-many"], title="Association performance comparison",
-                     color_discrete_sequence=colors, labels={'method':'Methods', 'value':'Number of instances'})
+    
+    if show_categories:
+        # Create a plot for each type of category 
+        for i in range(ncategories):
+            fig = px.bar(df.loc[categories_names[i]], x="method", y=["one-to-one", "missing", "over-segmentation",
+                        "under-segmentation", "many-to-many"], title="Association performance comparison",
+                        color_discrete_sequence=colors, labels={'method':'Methods', 'value':'Number of instances'})
+            fig.update_layout(legend=dict(orientation="h", yanchor="bottom", y=1.005, xanchor="right", x=0.835, title_text='',
+                                        font=dict(size=13)), font=dict(size=22))
+            fig.update_xaxes(tickangle=45)
+            fig.write_image(os.path.join(os.path.dirname(folder),"all_methods_"+categories_names[i]+"_errors.svg"),
+                            width=shape[0], height=shape[1])
+            if show:
+                fig.show()
+    else:
+        df = df.groupby('method', sort=False).sum()
+        df.reset_index(inplace=True)
+        fig = px.bar(df, x="method", y=["one-to-one", "missing", "over-segmentation",
+                    "under-segmentation", "many-to-many"], title="Association performance comparison",
+                    color_discrete_sequence=colors, labels={'method':'Methods', 'value':'Number of instances'})
         fig.update_layout(legend=dict(orientation="h", yanchor="bottom", y=1.005, xanchor="right", x=0.835, title_text='',
-                                      font=dict(size=13)), font=dict(size=22))
+                                    font=dict(size=13)), font=dict(size=22))
         fig.update_xaxes(tickangle=45)
-        fig.write_image(os.path.join(os.path.dirname(folder),"all_methods_"+categories_names[i]+"_errors.svg"),
+        fig.write_image(os.path.join(os.path.dirname(folder),"all_methods_errors.svg"),
                         width=shape[0], height=shape[1])
         if show:
             fig.show()

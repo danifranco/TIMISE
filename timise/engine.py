@@ -233,13 +233,9 @@ class TIMISE:
             raise ValueError("'plot_shape' needs to have 2 values: [width, height]")
 
         if self.multiple_preds:
-            if not self.split_categories is None:
-                association_multiple_predictions(self.pred_out_dirs, self.association_stats_file, show=show,
-                                                 order=order, shape=plot_shape)
-            else:
-                # Association without categories. same function
-                print("??")
-
+            association_multiple_predictions(self.pred_out_dirs, self.association_stats_file, 
+                show=show, show_categories=self.show_categories, order=order, shape=plot_shape)
+        
         if individual_plots or not self.multiple_preds:
             if not self.split_categories is None:
                 final_file = os.path.join(self.pred_out_dirs[0], self.final_errors_file)
