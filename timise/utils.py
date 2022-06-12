@@ -4,39 +4,17 @@ import numpy as np
 import pandas as pd
 from skimage.io import imread, imsave
 
-def prepare_files(directory, verbose=False):
+def check_files(directory, verbose=False):
     files = sorted(next(os.walk(directory))[2])
-    if len(files) > 2 or len(files) == 0:
-        raise ValueError("Two files are expected in {} (.tif and .h5 file). Found {} files".format(directory, len(files)))
-    if len(files) == 2:
-        for f in files:
-            if not f.endswith('.h5') and not f.endswith('.tif'):
-                raise ValueError("Only .h5 or .tif files are expected. Given {}".format(os.path.join(directory,f)))
+    if len(files) == 0:
+        raise ValueError("No files found in {}".format(directory))
+    if len(files) != 1:
+        raise ValueError("Only one file expected. Found {}".format(len(files)))
 
-        if files[0].endswith('.h5'):
-            h5_file = os.path.join(directory, files[0])
-            tif_file = os.path.join(directory, files[1])
-        else:
-            h5_file = os.path.join(directory, files[1])
-            tif_file = os.path.join(directory, files[0])
-    else:
-        if files[0].endswith('.h5'):
-            h5_file = os.path.join(directory, files[0])
-            tif_file = 'none'
-        else:
-            tif_file = os.path.join(directory, files[0])
-            h5_file = 'none'
-
-    # Create .h5/.tif files if needed
-    if h5_file == 'none':
-        if verbose: print("Creating H5 file from file {}".format(tif_file))
-        h5_file = tif_to_h5(tif_file, directory)
-        if verbose: print("New file H5 created: {}".format(h5_file))
-    if tif_file == 'none':
-        if verbose: print("Creating TIF file from file {}".format(h5_file))
-        tif_file = h5_to_tif(h5_file, directory)
-        if verbose: print("New file TIF created: {}".format(tif_file))
-    return h5_file, tif_file
+    f = files[0]
+    if not f.endswith('.h5') and not f.endswith('.tif'):
+        raise ValueError("Only a .h5 or .tif file is expected. Given {}".format(os.path.join(directory,f)))
+    return os.path.join(directory, f)
 
 
 def tif_to_h5(tif_path, out_dir):
@@ -107,7 +85,6 @@ def mAP_out_to_dataframe(input_file, output_file, verbose=True):
                 iou.append(float(line[4]))
                 gt_id.append(int(line[2]))
                 gt_size.append(int(line[3]))
-                #print("{},{},{},{}".format(gt_id,gt_size,iou,pred_id))
 
     # Create the dataframe
     data_tuples = list(zip(gt_id,gt_size,pred_id,pred_size,iou))

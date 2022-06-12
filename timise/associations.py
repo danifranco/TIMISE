@@ -1,5 +1,6 @@
 import os
 import statistics
+import h5py
 import pandas as pd
 import numpy as np
 import networkx as nx
@@ -43,9 +44,25 @@ def calculate_associations(pred_file, gt_file, gt_stats_file, final_file, verbos
         if verbose:
             print("Associations between images {} and {}".format(pred_file,gt_file))
             print("Image loading . . .")
-        pred_img = LabelledImage(imread(pred_file), no_label_id=0)
-        gt_img = LabelledImage(imread(gt_file), no_label_id=0)
+        
+        # Load pred
+        if str(pred_file).endswith('.h5'):
+            h5f = h5py.File(pred_file, 'r')
+            k = list(h5f.keys())
+            pred_img = LabelledImage(np.array(h5f[k[0]]), no_label_id=0)
+            del h5f, k
+        else:
+            pred_img = LabelledImage(imread(pred_file), no_label_id=0)
 
+        # Load gt
+        if str(gt_file).endswith('.h5'):
+            h5f = h5py.File(gt_file, 'r')
+            k = list(h5f.keys())
+            gt_img = LabelledImage(np.array(h5f[k[0]]), no_label_id=0)
+            del h5f, k
+        else:
+            gt_img = LabelledImage(imread(gt_file), no_label_id=0)
+        
         if verbose: print("Calculation of matching between instances . . .")
         df_pred = fast_image_overlap3d(pred_img, gt_img, method='target_mother', ds=1, verbose=verbose)
         df_pred.columns = ['pred_id', 'gt_id', 'iou']
@@ -103,7 +120,14 @@ def calculate_associations(pred_file, gt_file, gt_stats_file, final_file, verbos
             out_results.append({'predicted': preds, 'gt': gt})
 
     if verbose: print("Calculating rest of missing instances not present in associations . . .")
-    img = imread(gt_file)
+    if str(gt_file).endswith('.h5'):
+        h5f = h5py.File(gt_file, 'r')
+        k = list(h5f.keys())
+        img = np.array(h5f[k[0]])
+        del h5f, k
+    else:
+        img = imread(gt_file)
+    
     labels = np.unique(img)[1:] # remove background
     total_instances = len(labels)
     new_gt_labels_processed = []
@@ -233,10 +257,8 @@ def print_association_stats(stats_csv, show_categories=False):
     total_instances_all = 0
     df_len = df_out.shape[0]
 
-    # If more than one line found means that the user selected to split into categories 
-    if df_len > 1:
-        max_str_size = 0
-        total_assoc = [0, 0, 0, 0, 0]
+    max_str_size = 0
+    total_assoc = [0, 0, 0, 0, 0]
 
     for i in range(df_len):
         total_instances = 0
@@ -270,16 +292,15 @@ def print_association_stats(stats_csv, show_categories=False):
             t = PrettyTable(extra_column+[' ',]+list(cell_statistics.keys())+['Total'])
         extra_column = [df_out.iloc[i].name,] if df_len > 1 else []
         t.add_row(extra_column+['Count',]+list(cell_statistics.values())+[total_instances])
+ 
+        total_assoc[0] += cell_statistics['one-to-one']
+        total_assoc[1] += cell_statistics['missing']
+        total_assoc[2] += cell_statistics['over-segmentation']
+        total_assoc[3] += cell_statistics['under-segmentation']
+        total_assoc[4] += cell_statistics['many-to-many']
 
-        if df_len > 1 :
-            total_assoc[0] += cell_statistics['one-to-one']
-            total_assoc[1] += cell_statistics['missing']
-            total_assoc[2] += cell_statistics['over-segmentation']
-            total_assoc[3] += cell_statistics['under-segmentation']
-            total_assoc[4] += cell_statistics['many-to-many']
-
-            if max_str_size < len(str(df_out.iloc[i].name)):
-                max_str_size = len(str(df_out.iloc[i].name))+3
+        if max_str_size < len(str(df_out.iloc[i].name)):
+            max_str_size = len(str(df_out.iloc[i].name))+3
 
         # Percentages
         cell_statistics = {state: np.around((val/total_instances)*100, 2) for state, val in cell_statistics.items()}

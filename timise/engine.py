@@ -1,5 +1,6 @@
 import os
 import kimimaro
+import h5py
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
@@ -8,7 +9,7 @@ from skimage.io import imread
 from .mAP_3Dvolume.mAP_engine import mAP_computation, print_mAP_stats
 from .associations import (calculate_associations, print_association_stats, association_plot_2d, association_plot_3d,
                            association_multiple_predictions)
-from .utils import Namespace, prepare_files, cable_length, mAP_out_to_dataframe
+from .utils import Namespace, check_files, cable_length, mAP_out_to_dataframe
 
 class TIMISE:
     """TIMISE main class """
@@ -89,7 +90,7 @@ class TIMISE:
         if not os.path.isdir(gt_dir):
             raise FileNotFoundError("{} directory does not exist".format(pred_dir))
         else:
-            self.gt_h5_file, self.gt_tif_file = prepare_files(gt_dir, verbose=verbose)
+            self.gt_file = check_files(gt_dir, verbose=verbose)
 
         pfolder_ids = sorted(next(os.walk(pred_dir))[1])
         pfolder_ids = [os.path.join(pred_dir, p) for p in pfolder_ids]
@@ -110,12 +111,11 @@ class TIMISE:
         #################
         gt_stats_out_file = os.path.join(out_dir, self.stats_gt_out_filename)
         print("Calculating GT statistics . . .")
-        self._get_file_statistics(self.gt_tif_file, gt_stats_out_file)
+        self._get_file_statistics(self.gt_file, gt_stats_out_file)
 
         print("*** Evaluating . . .")
         for n, id_ in enumerate(pfolder_ids):
             print("Processing folder {}".format(id_))
-            pred_files = sorted(next(os.walk(id_))[2])
 
             pred_out_dir = os.path.join(out_dir, os.path.basename(os.path.normpath(id_)))
             self.pred_out_dirs.append(pred_out_dir)
@@ -126,7 +126,7 @@ class TIMISE:
             os.makedirs(pred_out_dir, exist_ok=True)
 
             # Ensure .tif/.h5 files are created
-            pred_h5_file, pred_tif_file = prepare_files(id_, verbose=verbose)
+            pred_file = check_files(id_, verbose=verbose)
 
 
             #######
@@ -134,7 +134,7 @@ class TIMISE:
             #######
             if not os.path.exists(map_out_file):
                 print("Run mAP code . . .")
-                args = Namespace(gt_seg=self.gt_h5_file, predict_seg=pred_h5_file, predict_score='',
+                args = Namespace(gt_seg=self.gt_file, predict_seg=pred_file, predict_score='',
                                  predict_heatmap_channel=-1, threshold=self.map_th, threshold_crumb=2000,
                                  chunk_size=self.map_chunk_size, output_name=os.path.join(pred_out_dir, "map"),
                                  do_txt=1, do_eval=1, slices=-1, verbose=verbose)
@@ -150,7 +150,7 @@ class TIMISE:
             ##########################
             if not os.path.exists(stats_out_file):
                 print("Calculating predictions statistics . . .")
-                self._get_file_statistics(pred_tif_file, stats_out_file)
+                self._get_file_statistics(pred_file, stats_out_file)
             else:
                 print("Skipping predictions statistics calculation (seems to be done here: {} )".format(stats_out_file))
 
@@ -160,10 +160,9 @@ class TIMISE:
             ################
             if not os.path.exists(folder_association_file):
                 print("Calculating associations . . .")
-                calculate_associations(pred_tif_file, self.gt_tif_file, gt_stats_out_file, final_error_file,
+                calculate_associations(pred_file, self.gt_file, gt_stats_out_file, final_error_file,
                                        self.verbose)
             else:
-                print(pred_tif_file)
                 print("Skipping association calculation (seems to be done here: {} )".format(folder_association_file))
 
         print("*** [DONE] Evaluating . . .")
@@ -251,7 +250,12 @@ class TIMISE:
         """Calculate instances statistics such as volume, skeleton size and cable length."""
         if not os.path.exists(out_csv_file):
             if self.verbose: print("Reading file {} . . .".format(input_file))
-            img = imread(input_file)
+            if str(input_file).endswith('.h5'):
+                h5f = h5py.File(input_file, 'r')
+                k = list(h5f.keys())
+                img = np.array(h5f[k[0]])
+            else:
+                img = imread(input_file)
 
             if self.verbose: print("Calculating volumes . . .")
             values, volumes = np.unique(img, return_counts=True)
