@@ -35,7 +35,6 @@ def calculate_associations(pred_file, gt_file, gt_stats_file, final_file, verbos
        verbose : bool, optional
            Wheter to be more verbose.
     """
-
     # Calculating the matching between instances
     out_dir = os.path.dirname(final_file)
     pred_matching_file = os.path.join(out_dir, "target_mother_matching_file.csv")
@@ -223,7 +222,6 @@ def calculate_associations(pred_file, gt_file, gt_stats_file, final_file, verbos
 
 def lab_association(row):
     """Determines the association type."""
-
     if len(row['predicted']) == 0:
         return 'missing'
     elif len(row['predicted']) == 1:
@@ -249,7 +247,6 @@ def print_association_stats(stats_csv, show_categories=False):
        show_categories : bool, optional
            Whether to print one row per category or just all the instances together. 
     """
-
     if not os.path.exists(stats_csv):
         raise ValueError('File {} not found. Did you call TIMISE.evaluate()?'.format(stats_csv))
 
@@ -351,7 +348,6 @@ def association_plot_2d(final_file, save_path, show=True, bins=30, draw_std=True
        shape : 2d array of ints, optional
            Defines the shape of the plot.
     """
-
     df = pd.read_csv(final_file, index_col=False)
     
     X = np.array(df['cable_length'].tolist(), dtype=float).tolist()
@@ -429,7 +425,6 @@ def association_plot_3d(assoc_file, save_path, show=True, draw_plane=True, log_x
        shape : 2d array of ints, optional
            Defines the shape of the plot.
     """
-
     axis_propety = ['volume','cable_length','association_counter']
 
     df = pd.read_csv(assoc_file, index_col=False)
@@ -479,7 +474,6 @@ def association_multiple_predictions(prediction_dirs, assoc_stats_file, show=Tru
        shape : 2d array of ints, optional
            Defines the shape of the plot.
     """
-
     dataframes = []
     for folder in prediction_dirs:
         df_method = pd.read_csv(os.path.join(folder,assoc_stats_file), index_col=0)
