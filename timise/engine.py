@@ -14,7 +14,7 @@ from .utils import Namespace, check_files, cable_length, mAP_out_to_dataframe
 
 class TIMISE:
     """TIMISE main class """
-    def __init__(self, metrics=['mAP', 'asocciations', 'matching'], split_categories=None, 
+    def __init__(self, metrics=['mAP', 'associations', 'matching'], split_categories=None, 
                  split_property=None, split_ths=None, map_chunk_size=10):
         """TIMISE class initialization.
 
@@ -40,8 +40,8 @@ class TIMISE:
             raise ValueError("You need to select at least one metric to calculate")
         metrics = [x.lower() for x in metrics] 
         for val in metrics:
-            if val not in ['map', 'asocciations', 'matching']:
-                raise ValueError("Available metrics: 'mAP', 'asocciations' and 'matching'. {} is unknown".format(val))
+            if val not in ['map', 'associations', 'matching']:
+                raise ValueError("Available metrics: 'mAP', 'associations' and 'matching'. {} is unknown".format(val))
 
         if not split_categories is None:
             self.show_categories = True
@@ -262,7 +262,7 @@ class TIMISE:
         if not 'associations' in self.metrics:
             print("You can not plot as association metrics were not calculated")
             return 
-
+            
         assert plot_type in ['error_2d', 'error_3d']
         assert color_by in ['association_type', 'category']
         assert symbol in ['association_type', 'category']
