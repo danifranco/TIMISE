@@ -57,7 +57,9 @@ Stats in /home/user/analysis/output/model_xx_prediction
 
 And a summary plot for your model's errors:
 
-![A summary plot](https://github.com/danifranco/TIMISE/blob/main/examples/img/plot_error_example.png)
+<p align="center">
+  <img src="https://github.com/danifranco/TIMISE/blob/main/examples/img/plot_error_example.png" alt="summary_plot" width="500"/>
+</p>
 
 ## Details
 Two different workflows are implemented:
