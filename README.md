@@ -1,13 +1,22 @@
 # A **T**oolbox for **I**dentifying **M**itochondria **I**nstance **S**egmentation **E**rrors
 
+# Installation
+Create a conda environment with all the dependencies:
+```shell
+conda env create -f environment.yml
+conda activate timise
+```
+
 # Usage
 
 ```python
 from timise import TIMISE
 
 timise = TIMISE()
-timise.evaluate("/home/user/model_xx_prediction","/home/user/gt", "/home/user/output", data_resolution=[30,8,8])
+timise.evaluate("/home/user/model_xx_prediction_folder","/home/user/gt_folder", 
+                "/home/user/output_folder", data_resolution=[30,8,8])
 timise.summarize()  # Summarize the results as tables in the console
+timise.plot() # Plot errors (2D plot by default. It is going to save plots inside '/home/user/output' path also)
 ```
 
 Example of the tables printed in the console:
@@ -40,4 +49,45 @@ Stats in /home/user/analysis/output/model_xx_prediction
 +--------+--------+--------+-------+-----------+--------+----------+-------+--------+---------+-----------------+--------------------+------------------+
 ```
 
+And a summary plot for your model's errors:
 
+![A summary plot](https://github.com/dfranco/TIMISE/tree/main/examples/img/plot_error_example.png)
+
+## Details
+Two different workflows are implemented:
+- When no more folders are found inside the input path, e.g. ``/home/user/model_xx_prediction_folder`` in this example, the file ``.h5`` or ``.tif`` inside that folder will be evaluated against gt file in ``/home/user/gt_folder``.
+- When more folders are found inside the input path e.g. ``/home/user/model_xx_prediction_folder`` in this example. In this case every folder will be processed as if it were a method to be evaluated, so each folder must contain its own ``.h5``/``.tif`` file. This option is usefull when multiple models' predictions need to be evaluated at once. Apart for individual plots this workflow also allows the creation of a general plot gathering the results of all methods.
+
+## Understanding output folder files
+These are the files that the toolbox will create:
+
+```shell
+/home/user/output_folder/model_xx_prediction_folder/
+├─ model_xx_prediction_folder/
+│  ├─ associations.csv
+│  ├─ associations_stats.csv
+│  ├─ gt_final.csv
+│  ├─ map.csv
+│  ├─ map_map.txt
+│  ├─ matching_metrics.csv
+│  ├─ prediction_stats.csv
+│  ├─ target_daughter_matching_file.csv
+│  ├─ target_mother_matching_file.csv
+```
+
+- ``associations.csv``: associations between predicted and gt instances. Created when associations metrics are computed. 
+- ``associations_stats.csv``: summary of the associations to print them easily. Created when associations metrics are computed. 
+- ``gt_final.csv``: gt statistics mixed with the association errors. Used to generate the final plots easily. Created when associations metrics are computed. 
+- ``map.csv``: matching stats between prediction and gt instances. Created when mAP metric is computed.  
+- ``map_map.txt``: mAP auxiliary file. Created when mAP metric is computed. 
+- ``matching_metrics.csv``: summary of the matching metrics to print them easily. Created when matching metrics are computed.  
+- ``prediction_stats.csv``: statistics of predicted instances. Created when prediction statistics are computed.  
+- ``target_daughter_matching_file.csv``: auxiliary matching file used for association metrics. Created when associations metrics are computed. 
+- ``prediction_statarget_mother_matching_filets.csv``: auxiliary matching file used for association metrics. Created when associations metrics are computed. 
+
+
+## Jupyter Notebook
+Check out the jupyter notebooks in [examples folder](https://github.com/dfranco/TIMISE/tree/main/examples) for more details.
+
+# Citation
+Under construction . . .

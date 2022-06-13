@@ -206,6 +206,7 @@ dependencies:
   - zipp=3.7.0=pyhd3eb1b0_0
   - zlib=1.2.11=h7f8727e_4
   - zstd=1.4.9=haebb681_0
+  - ctrl==0.0.1
   - pip:
     - boto3==1.21.33
     - botocore==1.24.33
@@ -219,7 +220,6 @@ dependencies:
     - compresso==3.0.0
     - connected-components-3d==3.9.1
     - crc32c==2.2.post0
-    - ctrl==0.0.1
     - deflate==0.3.0
     - dijkstra3d==1.12.0
     - dill==0.3.4
