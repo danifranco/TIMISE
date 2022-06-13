@@ -13,10 +13,16 @@ conda activate timise
 from timise import TIMISE
 
 timise = TIMISE()
+
+# Compute metrics
 timise.evaluate("/home/user/model_xx_prediction_folder","/home/user/gt_folder", 
                 "/home/user/output_folder", data_resolution=[30,8,8])
-timise.summarize()  # Summarize the results as tables in the console
-timise.plot() # Plot errors (2D plot by default. It is going to save plots inside '/home/user/output' path also)
+
+# Summarize the results as tables in the console
+timise.summarize() 
+
+# Plot errors (2D plot by default) and save in '/home/user/output/model_xx_prediction_folder'
+timise.plot() 
 ```
 
 Example of the tables printed in the console:
@@ -51,7 +57,7 @@ Stats in /home/user/analysis/output/model_xx_prediction
 
 And a summary plot for your model's errors:
 
-![A summary plot](https://github.com/dfranco/TIMISE/tree/main/examples/img/plot_error_example.png)
+![A summary plot](https://github.com/danifranco/TIMISE/blob/main/examples/img/plot_error_example.png)
 
 ## Details
 Two different workflows are implemented:
