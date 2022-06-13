@@ -49,27 +49,27 @@ def calculate_associations(pred_file, gt_file, gt_stats_file, final_file, verbos
         if str(pred_file).endswith('.h5'):
             h5f = h5py.File(pred_file, 'r')
             k = list(h5f.keys())
-            pred_img = LabelledImage(np.array(h5f[k[0]]), no_label_id=0)
+            y_pred = LabelledImage(np.array(h5f[k[0]]), no_label_id=0)
             del h5f, k
         else:
-            pred_img = LabelledImage(imread(pred_file), no_label_id=0)
+            y_pred = LabelledImage(imread(pred_file), no_label_id=0)
 
         # Load gt
         if str(gt_file).endswith('.h5'):
             h5f = h5py.File(gt_file, 'r')
             k = list(h5f.keys())
-            gt_img = LabelledImage(np.array(h5f[k[0]]), no_label_id=0)
+            y_true = LabelledImage(np.array(h5f[k[0]]), no_label_id=0)
             del h5f, k
         else:
-            gt_img = LabelledImage(imread(gt_file), no_label_id=0)
+            y_true = LabelledImage(imread(gt_file), no_label_id=0)
         
         if verbose: print("Calculation of matching between instances . . .")
-        df_pred = fast_image_overlap3d(pred_img, gt_img, method='target_mother', ds=1, verbose=verbose)
+        df_pred = fast_image_overlap3d(y_pred, y_true, method='target_mother', ds=1, verbose=verbose)
         df_pred.columns = ['pred_id', 'gt_id', 'iou']
-        df_gt = fast_image_overlap3d(pred_img, gt_img, method='target_daughter', ds=1, verbose=verbose)
+        df_gt = fast_image_overlap3d(y_pred, y_true, method='target_daughter', ds=1, verbose=verbose)
         df_gt.columns = ['pred_id', 'gt_id', 'iou']
 
-        del pred_img,gt_img
+        del y_pred,y_true
         # Save matching files
         df_pred.to_csv(pred_matching_file)
         df_gt.to_csv(gt_matching_file)
@@ -311,14 +311,14 @@ def print_association_stats(stats_csv, show_categories=False):
         t.add_row(['',]*(3+len(cell_statistics.values()) ))
         t.add_row(['TOTAL','Count',]+total_assoc+[total_instances_all,])
         t.add_row([' ','%',]+[np.around((val/total_instances_all)*100, 2) for val in total_assoc]+[total_instances_all,])
-        more_space = ' '*int(max_str_size/2)
     else:
         t = PrettyTable([' ',]+list(cell_statistics.keys())+['Total'])
         t.add_row(['Count',]+total_assoc+[total_instances_all,])
         t.add_row(['%',]+[np.around((val/total_instances_all)*100, 2) for val in total_assoc]+[total_instances_all,])
-        more_space = ''
 
-    print(more_space+"                                         Associations                                         "+more_space)
+    txt = "Associations"
+    txt = txt.center(t.get_string().find(os.linesep))
+    print(txt)
     print(t)
 
 

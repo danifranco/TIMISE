@@ -148,6 +148,9 @@ def print_mAP_stats(stats_file):
     columns = ['IoU=0.50:0.95', 'IoU=0.50', 'IoU=0.75', 'IoU=0.90']
     t = PrettyTable(columns)
     t.add_row(values.tolist())
-    print("             Average Precision (AP)              ")
+
+    txt = "Average Precision (AP)"
+    txt = txt.center(t.get_string().find(os.linesep))
+    print(txt)
     print(t)
 

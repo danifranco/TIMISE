@@ -9,6 +9,7 @@ from skimage.io import imread
 from .mAP_3Dvolume.mAP_engine import mAP_computation, print_mAP_stats
 from .associations import (calculate_associations, print_association_stats, association_plot_2d, association_plot_3d,
                            association_multiple_predictions)
+from .matching import calculate_matching_metrics, print_matching_stats
 from .utils import Namespace, check_files, cable_length, mAP_out_to_dataframe
 
 class TIMISE:
@@ -73,6 +74,10 @@ class TIMISE:
         self.association_file = "associations.csv"
         self.association_stats_file = "associations_stats.csv"
 
+        # Matching metrics
+        self.matching_file = "matching_metrics.csv"
+        self.matching_stats_ths = [0.3, 0.5, 0.75]
+
         # Final gt errors
         self.final_errors_file = "gt_final.csv"
 
@@ -120,7 +125,7 @@ class TIMISE:
             pred_out_dir = os.path.join(out_dir, os.path.basename(os.path.normpath(id_)))
             self.pred_out_dirs.append(pred_out_dir)
             map_out_file = os.path.join(pred_out_dir, self.map_out_filename)
-            folder_association_file = os.path.join(pred_out_dir, self.association_file)
+            matching_file = os.path.join(pred_out_dir, self.matching_file)
             stats_out_file = os.path.join(pred_out_dir, self.stats_pred_out_filename)
             final_error_file = os.path.join(pred_out_dir, self.final_errors_file)
             os.makedirs(pred_out_dir, exist_ok=True)
@@ -158,13 +163,25 @@ class TIMISE:
             ################
             # Associations #
             ################
-            if not os.path.exists(folder_association_file):
+            if not os.path.exists(final_error_file):
                 print("Calculating associations . . .")
-                calculate_associations(pred_file, self.gt_file, gt_stats_out_file, final_error_file,
+                calculate_associations(self.gt_file, pred_file, gt_stats_out_file, final_error_file,
                                        self.verbose)
             else:
-                print("Skipping association calculation (seems to be done here: {} )".format(folder_association_file))
+                print("Skipping association calculation (seems to be done here: {} )".format(final_error_file))
 
+
+            ####################
+            # Matching metrics #
+            ####################
+            if not os.path.exists(matching_file):
+                print("Calculating matching metrics . . .")
+                calculate_matching_metrics(self.gt_file, pred_file, matching_file, report_matches=False,
+                    precomputed_matching_file=os.path.join(pred_out_dir, self.map_out_csv), gt_stats_file=gt_stats_out_file, 
+                    pred_stats_file=stats_out_file, thresh=self.matching_stats_ths)
+            else:
+                print("Skipping matching metrics calculation (seems to be done here: {} )".format(matching_file))
+            
         print("*** [DONE] Evaluating . . .")
 
 
@@ -178,6 +195,8 @@ class TIMISE:
             print_mAP_stats(os.path.join(f, self.map_stats_file))
             print('')
             print_association_stats(os.path.join(f, self.association_stats_file), self.show_categories)
+            print('')
+            print_matching_stats(os.path.join(f, self.matching_file), self.show_categories)
 
 
     def plot(self, plot_type='error_2d', show=True, individual_plots=False, nbins=30, draw_std=True, color_by="association_type",
