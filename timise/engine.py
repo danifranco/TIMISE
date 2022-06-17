@@ -14,7 +14,7 @@ from .utils import Namespace, check_files, cable_length, mAP_out_to_dataframe
 
 class TIMISE:
     """TIMISE main class """
-    def __init__(self, metrics=['mAP', 'associations', 'matching'], split_categories=None, 
+    def __init__(self, metrics=['mAP', 'associations', 'matching'], split_categories=None,
                  split_property=None, split_ths=None, map_chunk_size=10):
         """TIMISE class initialization.
 
@@ -38,7 +38,7 @@ class TIMISE:
             raise ValueError("'metrics' needs to be a list'")
         if len(metrics) == 0:
             raise ValueError("You need to select at least one metric to calculate")
-        metrics = [x.lower() for x in metrics] 
+        metrics = [x.lower() for x in metrics]
         for val in metrics:
             if val not in ['map', 'associations', 'matching']:
                 raise ValueError("Available metrics: 'mAP', 'associations' and 'matching'. {} is unknown".format(val))
@@ -190,11 +190,11 @@ class TIMISE:
                 if not os.path.exists(matching_file):
                     print("Calculating matching metrics . . .")
                     calculate_matching_metrics(self.gt_file, pred_file, matching_file, report_matches=False,
-                        precomputed_matching_file=os.path.join(pred_out_dir, self.map_out_csv), gt_stats_file=gt_stats_out_file, 
+                        precomputed_matching_file=os.path.join(pred_out_dir, self.map_out_csv), gt_stats_file=gt_stats_out_file,
                         pred_stats_file=stats_out_file, thresh=self.matching_stats_ths)
                 else:
                     print("Skipping matching metrics calculation (seems to be done here: {} )".format(matching_file))
-            
+
         print("*** [DONE] Evaluating . . .")
 
 
@@ -215,8 +215,9 @@ class TIMISE:
                 print_matching_stats(os.path.join(f, self.matching_file), self.show_categories)
 
 
-    def plot(self, plot_type='error_2d', show=True, individual_plots=False, nbins=30, draw_std=True, color_by="association_type",
-             symbol="category", draw_plane=True, log_x=False, log_y=False, order=[], plot_shape=[1100,500]):
+    def plot(self, plot_type='error_2d', show=True, individual_plots=False, nbins=30, draw_std=True,
+             color_by="association_type", symbol="category", draw_plane=True, xaxis_range=None,
+             yaxis_range=None, log_x=False, log_y=False, order=[], plot_shape=[1100,500]):
         """Plot errors in different formats. When multiple predictions are available a common plot is created.
 
            Parameters
@@ -246,6 +247,12 @@ class TIMISE:
            draw_plane : bool, optional
                Whether to draw the plane on Z=0. Only applied when plot_type is 'error_3d'.
 
+           xaxis_range : array of 2 floats, optional
+               Range of x axis.
+
+           yaxis_range : array of 2 floats, optional
+               Range of x axis.
+
            log_x : bool, optional
                Wheter to apply log into x axis. Applied when plot_type is 'error_2d' or 'error_3d'.
 
@@ -261,8 +268,8 @@ class TIMISE:
         """
         if not 'associations' in self.metrics:
             print("You can not plot as association metrics were not calculated")
-            return 
-            
+            return
+
         assert plot_type in ['error_2d', 'error_3d']
         assert color_by in ['association_type', 'category']
         assert symbol in ['association_type', 'category']
@@ -270,18 +277,20 @@ class TIMISE:
             raise ValueError("'plot_shape' needs to have 2 values: [width, height]")
 
         if self.multiple_preds:
-            association_multiple_predictions(self.pred_out_dirs, self.association_stats_file, 
+            association_multiple_predictions(self.pred_out_dirs, self.association_stats_file,
                 show=show, show_categories=self.show_categories, order=order, shape=plot_shape)
-        
+
         if individual_plots or not self.multiple_preds:
+            final_file = os.path.join(self.pred_out_dirs[0], self.final_errors_file)
             if not self.split_categories is None:
-                final_file = os.path.join(self.pred_out_dirs[0], self.final_errors_file)
                 if plot_type == 'error_3d':
                     association_plot_3d(final_file, self.pred_out_dirs[0], show=show, draw_plane=draw_plane,
-                                        log_x=log_x, log_y=log_y, color=color_by, symbol=symbol, shape=plot_shape)
-                elif plot_type == 'error_2d':
-                    association_plot_2d(final_file, self.pred_out_dirs[0], show=show, log_x=log_x, log_y=log_y,
-                                        bins=nbins, draw_std=draw_std, shape=plot_shape)
+                                        xaxis_range=xaxis_range, yaxis_range=yaxis_range, log_x=log_x, log_y=log_y,
+                                        color=color_by, symbol=symbol, shape=plot_shape)
+            if plot_type == 'error_2d':
+                association_plot_2d(final_file, self.pred_out_dirs[0], show=show, xaxis_range=xaxis_range,
+                                    yaxis_range=yaxis_range, log_x=log_x, log_y=log_y, bins=nbins,
+                                    draw_std=draw_std, shape=plot_shape)
 
 
     def _get_file_statistics(self, input_file, out_csv_file):

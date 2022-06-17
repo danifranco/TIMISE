@@ -14,7 +14,7 @@ import plotly.express as px
 
 def calculate_associations(pred_file, gt_file, gt_stats_file, final_file, verbose=True):
     """Calculate associations between instances. Based on the work presented in `Assessment of deep learning
-       algorithms for 3D instance segmentation of confocal image datasets 
+       algorithms for 3D instance segmentation of confocal image datasets
        <https://www.biorxiv.org/content/10.1101/2021.06.09.447748v1.full>`_.
        Code `here <https://mosaic.gitlabpages.inria.fr/publications/seg_compare/evaluation.html>`_.
 
@@ -43,7 +43,7 @@ def calculate_associations(pred_file, gt_file, gt_stats_file, final_file, verbos
         if verbose:
             print("Associations between images {} and {}".format(pred_file,gt_file))
             print("Image loading . . .")
-        
+
         # Load pred
         if str(pred_file).endswith('.h5'):
             h5f = h5py.File(pred_file, 'r')
@@ -61,7 +61,7 @@ def calculate_associations(pred_file, gt_file, gt_stats_file, final_file, verbos
             del h5f, k
         else:
             y_true = LabelledImage(imread(gt_file), no_label_id=0)
-        
+
         if verbose: print("Calculation of matching between instances . . .")
         df_pred = fast_image_overlap3d(y_pred, y_true, method='target_mother', ds=1, verbose=verbose)
         df_pred.columns = ['pred_id', 'gt_id', 'iou']
@@ -126,7 +126,7 @@ def calculate_associations(pred_file, gt_file, gt_stats_file, final_file, verbos
         del h5f, k
     else:
         img = imread(gt_file)
-    
+
     labels = np.unique(img)[1:] # remove background
     total_instances = len(labels)
     new_gt_labels_processed = []
@@ -243,9 +243,9 @@ def print_association_stats(stats_csv, show_categories=False):
        ----------
        stats_csv : str
            Path where the statistics of the associations are stored.
-        
+
        show_categories : bool, optional
-           Whether to print one row per category or just all the instances together. 
+           Whether to print one row per category or just all the instances together.
     """
     if not os.path.exists(stats_csv):
         raise ValueError('File {} not found. Did you call TIMISE.evaluate()?'.format(stats_csv))
@@ -289,7 +289,7 @@ def print_association_stats(stats_csv, show_categories=False):
             t = PrettyTable(extra_column+[' ',]+list(cell_statistics.keys())+['Total'])
         extra_column = [df_out.iloc[i].name,] if df_len > 1 else []
         t.add_row(extra_column+['Count',]+list(cell_statistics.values())+[total_instances])
- 
+
         total_assoc[0] += cell_statistics['one-to-one']
         total_assoc[1] += cell_statistics['missing']
         total_assoc[2] += cell_statistics['over-segmentation']
@@ -319,37 +319,44 @@ def print_association_stats(stats_csv, show_categories=False):
     print(t)
 
 
-def association_plot_2d(final_file, save_path, show=True, bins=30, draw_std=True, log_x=False, log_y=False, shape=[1100,500]):
+def association_plot_2d(final_file, save_path, show=True, bins=30, draw_std=True, xaxis_range=None,
+                        yaxis_range=None, log_x=False, log_y=False, shape=[1100,500]):
     """Plot 2D errors.
-    
+
        Parameters
        ----------
        final_file : str
            Path to the final statistics file.
 
        save_path : str
-           Directory to store the plot into. 
+           Directory to store the plot into.
 
        show : bool, optional
-           Wheter to show or not the plot after saving. 
+           Wheter to show or not the plot after saving.
 
        bins : int, optional
-           Defines the number of equal-width bins to create when creating the plot. 
-    
+           Defines the number of equal-width bins to create when creating the plot.
+
        draw_std : bool, optional
            Whether to draw or not standar deviation of y axis.
 
+       xaxis_range : array of 2 floats, optional
+           Range of x axis.
+
+       yaxis_range : array of 2 floats, optional
+           Range of x axis.
+
        log_x : bool, optional
-           True to apply log in 'x' axis. 
+           True to apply log in 'x' axis.
 
        log_y : bool, optional
-           True to apply log in 'y' axis. 
+           True to apply log in 'y' axis.
 
        shape : 2d array of ints, optional
            Defines the shape of the plot.
     """
     df = pd.read_csv(final_file, index_col=False)
-    
+
     X = np.array(df['cable_length'].tolist(), dtype=float).tolist()
     Z = np.array(df['association_counter'].tolist(), dtype=float).tolist()
 
@@ -359,68 +366,68 @@ def association_plot_2d(final_file, save_path, show=True, bins=30, draw_std=True
     ret_y = []
     std = [] if draw_std else np.zeros((len(binnumber)),dtype=int)
     for i in range(1,bins+1):
-        r = df.loc[df['binnumber'] == i, 'association_counter']   
+        r = df.loc[df['binnumber'] == i, 'association_counter']
         if r.shape[0] == 0:
-            ret_y.append(0) 
+            ret_y.append(0)
         else:
             ret_y.append(statistics.mean(r))
-        
+
         # collect std
         if draw_std:
             r = df.loc[df['binnumber'] == i, 'association_counter']
             if r.shape[0] < 2:
-                std.append(0) 
+                std.append(0)
             else:
-                std.append(statistics.stdev(r))        
+                std.append(statistics.stdev(r))
 
     # Create dataframe for the plot
     data_tuples = list( zip( np.nan_to_num(ret_x), np.nan_to_num(ret_y), np.log(size+1)*50, std ) )
     df2 = pd.DataFrame(data_tuples, columns=['cable_length','association_counter', 'bin_counter', 'stdev_assoc'])
     error_y = 'stdev_assoc' if draw_std else None
 
-    # Plot 
+    # Plot
     username = os.path.basename(save_path)
     fig = px.scatter(df2, x="cable_length", y="association_counter", color="association_counter",size="bin_counter",
                         error_y=error_y, log_x=log_x, log_y=log_y, title=username+' - Error analysis',
                         color_continuous_scale=px.colors.sequential.Bluered)
     fig.layout.showlegend = False
     fig.update(layout_coloraxis_showscale=False)
-    fig.update_layout(font=dict(size=25))
+    fig.update_layout(font=dict(size=25), xaxis_range=xaxis_range, yaxis_range=yaxis_range)
 
     fig.write_image(os.path.join(save_path,username+"_error.svg"), width=shape[0], height=shape[1])
     if show:
-      fig.show()  
+      fig.show()
 
 
 def association_plot_3d(assoc_file, save_path, show=True, draw_plane=True, log_x=True, log_y=True, color="association_type",
                         symbol="category", shape=[800,800]):
     """Plot 3D errors.
-    
+
        Parameters
        ----------
        assoc_file : str
-           Path where to the association file. 
+           Path where to the association file.
 
        save_path : str
-           Directory to store the plot into. 
+           Directory to store the plot into.
 
        show : bool, optional
-           Wheter to show or not the plot after saving. 
+           Wheter to show or not the plot after saving.
 
        draw_plane : bool, optional
-           Wheter to draw or not the plane in z=0 to see better the 'over' and 'under' segmentations. 
+           Wheter to draw or not the plane in z=0 to see better the 'over' and 'under' segmentations.
 
        log_x : bool, optional
-           True to apply log in 'x' axis. 
+           True to apply log in 'x' axis.
 
        log_y : bool, optional
-           True to apply log in 'y' axis. 
-    
+           True to apply log in 'y' axis.
+
        color : str, optional
-           Property to based the color selection. 
+           Property to based the color selection.
 
        symbol : str, optional
-           Property to based the symbol selection. 
+           Property to based the symbol selection.
 
        shape : 2d array of ints, optional
            Defines the shape of the plot.
@@ -449,23 +456,23 @@ def association_plot_3d(assoc_file, save_path, show=True, draw_plane=True, log_x
       fig.show()
 
 
-def association_multiple_predictions(prediction_dirs, assoc_stats_file, show=True, show_categories=False, 
+def association_multiple_predictions(prediction_dirs, assoc_stats_file, show=True, show_categories=False,
                                      order=[], shape=[1100,500]):
     """Create a plot that gather multiple prediction information.
-    
+
        Parameters
        ----------
        prediction_dirs : str
-           Directory where all the predictions folders are placed. 
+           Directory where all the predictions folders are placed.
 
        assoc_stats_file : str
-           Name of the association stats file. 
+           Name of the association stats file.
 
        show : bool, optional
-           Wheter to show or not the plot after saving. 
+           Wheter to show or not the plot after saving.
 
        show_categories :  bool, optional
-           Whether to create a plot per category or just one. 
+           Whether to create a plot per category or just one.
 
        order : list of str, optional
            Order each prediction based on a given list. The names need to match the names used for
@@ -480,7 +487,7 @@ def association_multiple_predictions(prediction_dirs, assoc_stats_file, show=Tru
         df_method['method'] = os.path.basename(folder)
         dataframes.append(df_method)
 
-        # Initialize in the first loop 
+        # Initialize in the first loop
         if 'ncategories' not in locals():
             ncategories = df_method.shape[0]
             categories_names = [df_method.iloc[i].name for i in range(ncategories)]
@@ -506,9 +513,9 @@ def association_multiple_predictions(prediction_dirs, assoc_stats_file, show=Tru
     tmp = colors[0]
     colors[0] = colors[2]
     colors[2] = tmp
-    
+
     if show_categories:
-        # Create a plot for each type of category 
+        # Create a plot for each type of category
         for i in range(ncategories):
             fig = px.bar(df.loc[categories_names[i]], x="method", y=["one-to-one", "missing", "over-segmentation",
                         "under-segmentation", "many-to-many"], title="Association performance comparison",
