@@ -102,3 +102,15 @@ class Namespace:
     def __init__(self, **kwargs):
         self.__dict__.update(kwargs)
 
+def create_map_aux_file_from_stats(stats_file, out_file):
+    """Create an auxiliary file for mAP calculation"""
+    aa = open(stats_file)
+    bb = aa.readlines()
+    result = np.zeros([len(bb)-1,2])
+    tt = {'small':0,'medium':1,'large':2}
+    for i in range(1,len(bb)):
+        line = bb[i].replace('\n','').split(',')
+        result[i-1, 0] = int(line[0])
+        result[i-1, 1] = tt[line[-1]]
+    aa.close()
+    np.savetxt(out_file, result, '%d')

@@ -10,7 +10,7 @@ from .mAP_3Dvolume.mAP_engine import mAP_computation, print_mAP_stats
 from .associations import (calculate_associations, print_association_stats, association_plot_2d, association_plot_3d,
                            association_multiple_predictions)
 from .matching import calculate_matching_metrics, print_matching_stats
-from .utils import Namespace, check_files, cable_length, mAP_out_to_dataframe
+from .utils import Namespace, check_files, cable_length, mAP_out_to_dataframe, create_map_aux_file_from_stats
 
 class TIMISE:
     """TIMISE main class """
@@ -46,7 +46,7 @@ class TIMISE:
         if not split_categories is None:
             self.show_categories = True
             if not split_property is None:
-                assert split_property in ['volume', 'skel_size', 'cable_length']
+                assert split_property in ['volume', 'cable_length']
             else:
                 raise ValueError("'split_property' can not be None while setting 'split_categories'")
             if not split_ths is None:
@@ -75,6 +75,7 @@ class TIMISE:
         self.map_out_filename = "map_match_p.txt"
         self.map_out_csv = "map.csv"
         self.map_stats_file = "map_map.txt"
+        self.map_th_aux_file = "gt_threshold_file.txt"
 
         # Statistic
         self.stats_pred_out_filename = "prediction_stats.csv"
@@ -127,6 +128,11 @@ class TIMISE:
         gt_stats_out_file = os.path.join(out_dir, self.stats_gt_out_filename)
         print("Calculating GT statistics . . .")
         self._get_file_statistics(self.gt_file, gt_stats_out_file)
+        if not self.split_categories is None and self.split_property == 'cable_length':
+            map_th_aux_file = os.path.join(out_dir, self.map_th_aux_file)
+            create_map_aux_file_from_stats(gt_stats_out_file, map_th_aux_file)
+        else:
+            map_th_aux_file = ''
 
         print("*** Evaluating . . .")
         for n, id_ in enumerate(pfolder_ids):
@@ -150,10 +156,10 @@ class TIMISE:
             if 'map' in self.metrics:
                 if not os.path.exists(map_out_file):
                     print("Run mAP code . . .")
-                    args = Namespace(gt_seg=self.gt_file, predict_seg=pred_file, predict_score='',
-                                    predict_heatmap_channel=-1, threshold=self.map_th, threshold_crumb=2000,
-                                    chunk_size=self.map_chunk_size, output_name=os.path.join(pred_out_dir, "map"),
-                                    do_txt=1, do_eval=1, slices=-1, verbose=verbose)
+                    args = Namespace(gt_seg=self.gt_file, predict_seg=pred_file, gt_bbox='', predict_score='', predict_bbox='',
+                                     predict_heatmap_channel=-1, threshold=self.map_th, threshold_crumb=2000,
+                                     chunk_size=self.map_chunk_size, output_name=os.path.join(pred_out_dir, "map"),
+                                     threshold_file=map_th_aux_file, do_txt=1, do_eval=1, slices=-1, verbose=verbose)
                     mAP_computation(args)
 
                     mAP_out_to_dataframe(map_out_file, os.path.join(pred_out_dir, self.map_out_csv), self.verbose)

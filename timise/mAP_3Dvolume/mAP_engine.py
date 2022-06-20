@@ -22,6 +22,11 @@ def load_data(args, slices):
     gt_seg = readh5_handle(args.gt_seg)
     if slices[1] == -1:
         slices[1] = gt_seg.shape[0]
+    pred_bbox, gt_bbox = None, None
+    if args.predict_bbox != '':
+        pred_bbox = np.loadtxt(args.predict_bbox).astype(int)
+    if args.gt_bbox != '':
+        gt_bbox = np.loadtxt(args.gt_bbox).astype(int)
 
     # check shape match
     sz_gt = np.array(gt_seg.shape)
@@ -39,7 +44,7 @@ def load_data(args, slices):
         else:
             raise ValueError('Unknown file format for the prediction score')
 
-        if not np.any(pred_score.shape==2):
+        if not np.any(np.array(pred_score.shape)==2):
             raise ValueError('The prediction score should be a Nx2 array')
         if pred_score.shape[1] != 2:
             pred_score = pred_score.T
@@ -52,7 +57,6 @@ def load_data(args, slices):
         pred_score = np.ones([len(ui),2],int)
         pred_score[:,0] = ui
         """
-
         # alternative: sort by size
         ui,uc = unique_chunk(pred_seg, slices, chunk_size = args.chunk_size)
         uc = uc[ui>0]
@@ -61,13 +65,19 @@ def load_data(args, slices):
         pred_score[:,0] = ui
         pred_score[:,1] = uc
 
-    thres = np.fromstring(args.threshold, sep = ",")
-    areaRng = np.zeros((len(thres)+2,2),int)
-    areaRng[0,1] = 1e10
-    areaRng[-1,1] = 1e10
-    areaRng[2:,0] = thres
-    areaRng[1:-1,1] = thres
-    return gt_seg, pred_seg, pred_score, areaRng, slices
+    th_group, areaRng = None, None
+    if args.threshold_file != '': # exist threshold file
+        th_group = np.loadtxt(args.threshold_file).astype(int)
+    else:
+        thres = np.fromstring(args.threshold, sep = ",")
+        areaRng = np.zeros((len(thres)+2,2),int)
+        areaRng[0,1] = 1e10
+        areaRng[-1,1] = 1e10
+        areaRng[2:,0] = thres
+        areaRng[1:-1,1] = thres
+
+    return gt_seg, pred_seg, pred_score, th_group, areaRng, slices, gt_bbox, pred_bbox
+
 
 def mAP_computation(_args):
     """
@@ -102,11 +112,11 @@ def mAP_computation(_args):
 
     slices = _return_slices()
 
-    gt_seg, pred_seg, pred_score, areaRng, slices = load_data(args, slices)
+    gt_seg, pred_seg, pred_score, th_group, areaRng, slices, gt_bbox, pred_bbox = load_data(args, slices)
 
     ## 2. create complete mapping of ids for gt and pred:
     if args.verbose: print('\t2. Compute IoU')
-    result_p, result_fn, pred_score_sorted = seg_iou3d_sorted(pred_seg, gt_seg, pred_score, slices, areaRng, args.chunk_size, args.threshold_crumb, args.verbose)
+    result_p, result_fn, pred_score_sorted = seg_iou3d_sorted(pred_seg, gt_seg, pred_score, slices, th_group, areaRng, args.chunk_size, args.threshold_crumb, pred_bbox, gt_bbox)
     stop_time = int(round(time.time() * 1000))
     if args.verbose: print('\t-RUNTIME:\t{} [sec]\n'.format((stop_time-start_time)/1000) )
 
@@ -120,6 +130,7 @@ def mAP_computation(_args):
     if args.do_eval > 0:
         if args.verbose: print('start evaluation')
         #Evaluation
+        v3dEval.set_th_group(th_group)
         v3dEval.params.areaRng = areaRng
         v3dEval.accumulate()
         v3dEval.summarize()
