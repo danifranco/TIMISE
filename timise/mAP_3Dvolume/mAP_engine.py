@@ -65,9 +65,10 @@ def load_data(args, slices):
         pred_score[:,0] = ui
         pred_score[:,1] = uc
 
-    th_group, areaRng = None, None
-    if args.threshold_file != '': # exist threshold file
-        th_group = np.loadtxt(args.threshold_file).astype(int)
+    th_group, areaRng = np.zeros(0), np.zeros(0)
+    if args.group_gt != '': # exist gt group file
+        group_gt = np.loadtxt(args.group_gt).astype(int)
+        group_pred = np.loadtxt(args.group_pred).astype(int)
     else:
         thres = np.fromstring(args.threshold, sep = ",")
         areaRng = np.zeros((len(thres)+2,2),int)
@@ -76,7 +77,7 @@ def load_data(args, slices):
         areaRng[2:,0] = thres
         areaRng[1:-1,1] = thres
 
-    return gt_seg, pred_seg, pred_score, th_group, areaRng, slices, gt_bbox, pred_bbox
+    return gt_seg, pred_seg, pred_score, group_gt, group_pred, areaRng, slices, gt_bbox, pred_bbox
 
 
 def mAP_computation(_args):
@@ -112,17 +113,14 @@ def mAP_computation(_args):
 
     slices = _return_slices()
 
-    gt_seg, pred_seg, pred_score, th_group, areaRng, slices, gt_bbox, pred_bbox = load_data(args, slices)
-
+    gt_seg, pred_seg, pred_score, group_gt, group_pred, areaRng, slices, gt_bbox, pred_bbox = load_data(args, slices)
     ## 2. create complete mapping of ids for gt and pred:
     if args.verbose: print('\t2. Compute IoU')
-    result_p, result_fn, pred_score_sorted = seg_iou3d_sorted(pred_seg, gt_seg, pred_score, slices, th_group, areaRng, args.chunk_size, args.threshold_crumb, pred_bbox, gt_bbox)
+    result_p, result_fn, pred_score_sorted = seg_iou3d_sorted(pred_seg, gt_seg, pred_score, slices, group_gt, areaRng, args.chunk_size, args.threshold_crumb, pred_bbox, gt_bbox)
     stop_time = int(round(time.time() * 1000))
     if args.verbose: print('\t-RUNTIME:\t{} [sec]\n'.format((stop_time-start_time)/1000) )
 
     ## 3. Evaluation script for 3D instance segmentation
-    if args.output_name=='':
-        args.output_name = args.predict_seg[:args.predict_seg.rfind('.')]
     v3dEval = VOL3Deval(result_p, result_fn, pred_score_sorted, output_name=args.output_name, verbose=args.verbose)
     if args.do_txt > 0:
         v3dEval.save_match_p()
@@ -130,7 +128,7 @@ def mAP_computation(_args):
     if args.do_eval > 0:
         if args.verbose: print('start evaluation')
         #Evaluation
-        v3dEval.set_th_group(th_group)
+        v3dEval.set_group(group_gt, group_pred)
         v3dEval.params.areaRng = areaRng
         v3dEval.accumulate()
         v3dEval.summarize()
