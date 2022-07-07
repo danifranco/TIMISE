@@ -66,6 +66,7 @@ def load_data(args, slices):
         pred_score[:,1] = uc
 
     th_group, areaRng = np.zeros(0), np.zeros(0)
+    group_gt, group_pred = None, None
     if args.group_gt != '': # exist gt group file
         group_gt = np.loadtxt(args.group_gt).astype(int)
         group_pred = np.loadtxt(args.group_pred).astype(int)

@@ -87,17 +87,30 @@ class VOL3Deval:
         # remove small crumb
         self.gic = np.hstack([self.result_fn[:,3],self.cocoGt[:,0,1]])[gix[gid>0]]
         self.gid = gid[gid>0].astype(int)
+        self.pid = result_p[:,0].astype(int)
         self.G = len(self.gid)
 
         self.eval     = {}                  # accumulated evaluation results
         self.stats = []                     # result summarization
 
     def set_group(self, group_gt, group_pred):
+        self.params.group_gt, self.params.group_pred = None, None
         if group_gt is not None:
-            # need to align with gid
-            group_gt = group_gt[np.in1d(group_gt[:,0], self.gid)]
-        self.params.group_gt = group_gt
-        self.params.group_pred = group_pred
+            # align with self.gid
+            self.params.group_gt = - np.ones([len(self.gid), 2],int)
+            self.params.group_gt[:,0] = self.gid
+
+            rl = np.zeros(max(self.gid.max(), group_gt[:,0].max()) + 1, int)
+            rl[group_gt[:,0]] = group_gt[:,1] 
+            self.params.group_gt[:,1] = rl[self.gid]
+        if group_pred is not None:
+            # align with self.pid
+            self.params.group_pred = - np.ones([len(self.pid), 2],int)
+            self.params.group_pred[:,0] = self.pid
+
+            rl = np.zeros(max(self.pid.max(), group_pred[:,0].max()) + 1, int)
+            rl[group_pred[:,0]] = group_pred[:,1] 
+            self.params.group_pred[:,1] = rl[self.pid]
 
     def get_dtm_by_area(self, area_id, area_val):
         """
