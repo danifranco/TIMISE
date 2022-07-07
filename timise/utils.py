@@ -102,15 +102,78 @@ class Namespace:
     def __init__(self, **kwargs):
         self.__dict__.update(kwargs)
 
-def create_map_aux_file_from_stats(stats_file, out_file):
+def create_map_aux_file_from_stats(stats_file, out_file, cat=['small','medium','large']):
     """Create an auxiliary file for mAP calculation"""
     aa = open(stats_file)
     bb = aa.readlines()
     result = np.zeros([len(bb)-1,2])
-    tt = {'small':0,'medium':1,'large':2}
+
+    # Create categories
+    cat_codes = {}
+    for i, c in enumerate(cat):
+        cat_codes[c] = i
+    
     for i in range(1,len(bb)):
         line = bb[i].replace('\n','').split(',')
         result[i-1, 0] = int(line[0])
-        result[i-1, 1] = tt[line[-1]]
+        result[i-1, 1] = cat_codes[line[-1]]
     aa.close()
+    np.savetxt(out_file, result, '%d')
+
+def str_list_to_ints_list(df, col_name):
+    """Return a list converting strings to list of ints. This happens when creating 
+       the dataframe from dictionary containing lists."""
+    list = df[col_name]
+    new_list = []
+    for l in list:
+        new_l = l.replace(']','').replace('[','').split(", ")
+        if new_l[0] == '':
+            new_list.append([-1])
+        else:
+            new_list.append([int(a) for a in new_l])
+    return new_list
+
+def create_map_aux_file_from_associations(pred_stats_file, gt_stats_file, association_file,  
+    out_file, cat=['small','medium','large']):
+    """Create an auxiliary file for mAP calculation based on gt categories using the association info"""
+    df_assoc = pd.read_csv(association_file, index_col=False)
+    df_pred = pd.read_csv(pred_stats_file, index_col=False)
+    df_gt = pd.read_csv(gt_stats_file, index_col=False)
+
+    # Change columns from str to list of ints
+    df_assoc['predicted'] = str_list_to_ints_list(df_assoc, 'predicted')
+    df_assoc['gt'] = str_list_to_ints_list(df_assoc, 'gt')
+
+    # Create categories  
+    cat_codes = {}
+    for i, c in enumerate(cat):
+        cat_codes[c] = i
+
+    pred_instances = df_pred['label'].tolist()
+    result = np.zeros([len(pred_instances),2])
+    
+    # Capture prediction instances categories looking the instance 
+    # they are associated with in the gt
+    for i, pred_ins in enumerate(pred_instances):
+        query = []
+        for l in df_assoc['predicted']:
+            if pred_ins in l:
+                query.append(True)
+            else:
+                query.append(False)
+        line = df_assoc[query]
+
+        if line.size == 0:
+            c = df_pred[df_pred['label']==pred_ins]['category'].iloc[0]
+            pred_category = cat_codes[c]
+        else:
+            gt_instances = line['gt'].iloc[0]
+            pred_category = 0
+            for gt_ins in gt_instances:
+                c = df_gt[df_gt['label'] == gt_ins]['category'].iloc[0]
+                if cat_codes[c] > pred_category:
+                    pred_category = cat_codes[c]
+
+        result[i, 0] = pred_ins
+        result[i, 1] = pred_category
     np.savetxt(out_file, result, '%d')

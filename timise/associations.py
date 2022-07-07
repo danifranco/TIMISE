@@ -14,7 +14,7 @@ import plotly.express as px
 from .timagek_files.image_overlap import fast_image_overlap3d
 from .timagek_files.labelled_image import LabelledImage
 
-def calculate_associations(pred_file, gt_file, gt_stats_file, final_file, verbose=True):
+def calculate_associations(pred_file, gt_file, gt_stats_file, assoc_stats_file, assoc_file, final_file, verbose=True):
     """Calculate associations between instances. Based on the work presented in `Assessment of deep learning
        algorithms for 3D instance segmentation of confocal image datasets
        <https://www.biorxiv.org/content/10.1101/2021.06.09.447748v1.full>`_.
@@ -218,8 +218,8 @@ def calculate_associations(pred_file, gt_file, gt_stats_file, final_file, verbos
 
     # Saving dataframes
     gt_stats.to_csv(final_file)
-    df_out.to_csv(os.path.join(out_dir, "associations_stats.csv"))
-    out_results.to_csv(os.path.join(out_dir, "associations.csv"))
+    df_out.to_csv(os.path.join(out_dir, assoc_stats_file))
+    out_results.to_csv(os.path.join(out_dir, assoc_file))
 
 
 def lab_association(row):
