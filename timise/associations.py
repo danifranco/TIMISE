@@ -5,12 +5,14 @@ import pandas as pd
 import numpy as np
 import networkx as nx
 from scipy import stats
-from timagetk.components.labelled_image import LabelledImage
 from skimage.io import imread
-from ctrl.image_overlap import fast_image_overlap3d
 from prettytable import PrettyTable
 import plotly.express as px
 
+# from .timagetk_files.image_overlap import fast_image_overlap3d
+# from .timagetk_files.labelled_image import LabelledImage
+from .timagek_files.image_overlap import fast_image_overlap3d
+from .timagek_files.labelled_image import LabelledImage
 
 def calculate_associations(pred_file, gt_file, gt_stats_file, final_file, verbose=True):
     """Calculate associations between instances. Based on the work presented in `Assessment of deep learning
