@@ -37,29 +37,31 @@ SUPP_PLATFORMS = ['Linux', 'Darwin']
 
 # - Load libraries according to platform specificity:
 if platform.system() == 'Linux':
-    try:
-        libbasic = cdll.LoadLibrary('libbasic.so')
-        libblockmatching = cdll.LoadLibrary('libblockmatching.so')
-        libvt = cdll.LoadLibrary('libvt.so')
-        libvp = cdll.LoadLibrary('libvp.so')
-        libvtexec = cdll.LoadLibrary('libvtexec.so')
-        libio = cdll.LoadLibrary('libio.so')
-        libdavid = cdll.LoadLibrary('libdavid.so')
-    except ImportError:
-        print('Error: unable to load shared libraries')
-        sys.exit(-1)
+    # try:
+    #     libbasic = cdll.LoadLibrary('libbasic.so')
+    #     libblockmatching = cdll.LoadLibrary('libblockmatching.so')
+    #     libvt = cdll.LoadLibrary('libvt.so')
+    #     libvp = cdll.LoadLibrary('libvp.so')
+    #     libvtexec = cdll.LoadLibrary('libvtexec.so')
+    #     libio = cdll.LoadLibrary('libio.so')
+    #     libdavid = cdll.LoadLibrary('libdavid.so')
+    # except ImportError:
+    #     print('Error: unable to load shared libraries')
+    #     sys.exit(-1)
+    libblockmatching = None
 elif platform.system() == 'Darwin':
-    try:
-        libbasic = cdll.LoadLibrary('libbasic.dylib')
-        libblockmatching = cdll.LoadLibrary('libblockmatching.dylib')
-        libvt = cdll.LoadLibrary('libvt.dylib')
-        libvp = cdll.LoadLibrary('libvp.dylib')
-        libvtexec = cdll.LoadLibrary('libvtexec.dylib')
-        libio = cdll.LoadLibrary('libio.dylib')
-        libdavid = cdll.LoadLibrary('libdavid.dylib')
-    except ImportError:
-        print('Error: unable to load shared libraries')
-        sys.exit(-1)
+    # try:
+    #     libbasic = cdll.LoadLibrary('libbasic.dylib')
+    #     libblockmatching = cdll.LoadLibrary('libblockmatching.dylib')
+    #     libvt = cdll.LoadLibrary('libvt.dylib')
+    #     libvp = cdll.LoadLibrary('libvp.dylib')
+    #     libvtexec = cdll.LoadLibrary('libvtexec.dylib')
+    #     libio = cdll.LoadLibrary('libio.dylib')
+    #     libdavid = cdll.LoadLibrary('libdavid.dylib')
+    # except ImportError:
+    #     print('Error: unable to load shared libraries')
+    #     sys.exit(-1)
+    libblockmatching = None
 else:
     print("Supported platforms: {}".format(SUPP_PLATFORMS))
     sys.exit(-1)
@@ -80,7 +82,7 @@ else:
     print("Supported platforms: {}".format(SUPP_PLATFORMS))
     sys.exit(-1)
 
-libblockmatching.API_blockmatching.restype = POINTER(cBalTrsf)
+# libblockmatching.API_blockmatching.restype = POINTER(cBalTrsf)
 
 
 def return_value(values, rcode):
