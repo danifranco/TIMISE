@@ -391,7 +391,7 @@ def association_plot_2d(final_file, save_path, show=True, bins=30, draw_std=True
     username = os.path.basename(save_path)
     fig = px.scatter(df2, x="cable_length", y="association_counter", color="association_counter",size="bin_counter",
                         error_y=error_y, log_x=log_x, log_y=log_y, title=username+' - Error analysis',
-                        color_continuous_scale=px.colors.sequential.Bluered)
+                        color_continuous_scale=px.colors.sequential.Bluered, width=shape[0], height=shape[1])
     fig.layout.showlegend = False
     fig.update(layout_coloraxis_showscale=False)
     fig.update_layout(font=dict(size=25), xaxis_range=xaxis_range, yaxis_range=yaxis_range)
@@ -438,7 +438,7 @@ def association_plot_3d(assoc_file, save_path, show=True, draw_plane=True, log_x
 
     df = pd.read_csv(assoc_file, index_col=False)
     fig = px.scatter_3d(df, x=axis_propety[0], y=axis_propety[1], z=axis_propety[2], color=color,
-                        symbol=symbol, log_x=log_x, log_y=log_y)
+                        symbol=symbol, log_x=log_x, log_y=log_y, width=shape[0], height=shape[1])
 
     if draw_plane:
         height = 0
