@@ -520,8 +520,9 @@ def association_multiple_predictions(prediction_dirs, assoc_stats_file, show=Tru
         # Create a plot for each type of category
         for i in range(ncategories):
             fig = px.bar(df.loc[categories_names[i]], x="method", y=["one-to-one", "missing", "over-segmentation",
-                        "under-segmentation", "many-to-many"], title="Association performance comparison",
-                        color_discrete_sequence=colors, labels={'method':'Methods', 'value':'Number of instances'})
+                         "under-segmentation", "many-to-many"], title="Association performance ("+categories_names[i]+")",
+                         color_discrete_sequence=colors, labels={'method':'Methods', 'value':'Number of instances'},
+                         width=shape[0], height=shape[1])
             fig.update_layout(legend=dict(orientation="h", yanchor="bottom", y=1.005, xanchor="right", x=0.835, title_text='',
                                         font=dict(size=13)), font=dict(size=22))
             fig.update_xaxes(tickangle=45)
@@ -533,8 +534,9 @@ def association_multiple_predictions(prediction_dirs, assoc_stats_file, show=Tru
         df = df.groupby('method', sort=False).sum()
         df.reset_index(inplace=True)
         fig = px.bar(df, x="method", y=["one-to-one", "missing", "over-segmentation",
-                    "under-segmentation", "many-to-many"], title="Association performance comparison",
-                    color_discrete_sequence=colors, labels={'method':'Methods', 'value':'Number of instances'})
+                     "under-segmentation", "many-to-many"], title="Association performance comparison",
+                     color_discrete_sequence=colors, labels={'method':'Methods', 'value':'Number of instances'},
+                     width=shape[0], height=shape[1])
         fig.update_layout(legend=dict(orientation="h", yanchor="bottom", y=1.005, xanchor="right", x=0.835, title_text='',
                                     font=dict(size=13)), font=dict(size=22))
         fig.update_xaxes(tickangle=45)
