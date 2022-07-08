@@ -3,7 +3,6 @@ boto3==1.24.25
 botocore==1.27.25
 Brotli==1.0.9
 cachetools==5.2.0
-certifi @ file:///opt/conda/conda-bld/certifi_1655968806487/work/certifi
 cffi==1.15.1
 chardet==5.0.0
 charset-normalizer==2.1.0
