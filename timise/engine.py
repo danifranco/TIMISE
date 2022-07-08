@@ -347,6 +347,15 @@ class TIMISE:
                 skel_size.append(ind_skel.vertices.shape[0])
                 vol.append(volumes[values.index(label)])
 
+            # Kimimaro drops very tiny instances (e.g. 1 pixel instances). To be coherent later on we need those also
+            # so we check which instances where not processed
+            for v in values:
+                if not v in keys:
+                   keys.append(v)
+                   vol.append(volumes[values.index(v)])
+                   c_length.append(1)
+                   skel_size.append(1)
+
             data_tuples = list(zip(keys,vol,skel_size,c_length))
             dataframe = pd.DataFrame(data_tuples, columns=['label','volume','skel_size','cable_length'])
         else:

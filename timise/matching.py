@@ -78,7 +78,7 @@ def accuracy(tp,fp,fn):
 def f1(tp,fp,fn):
     return (2*tp)/(2*tp+fp+fn) if tp > 0 else 0
 
-def calculate_matching_metrics(pred_file, gt_file, out_file, precomputed_matching_file=None, gt_stats_file=None, 
+def calculate_matching_metrics(gt_file, pred_file, out_file, precomputed_matching_file=None, gt_stats_file=None, 
                                pred_stats_file=None, thresh=0.5, report_matches=False):
     """Calculate detection/instance segmentation metrics between ground truth and predicted label images.
        Currently, the following metrics are implemented:
@@ -121,19 +121,19 @@ def calculate_matching_metrics(pred_file, gt_file, out_file, precomputed_matchin
         if str(pred_file).endswith('.h5'):
             h5f = h5py.File(pred_file, 'r')
             k = list(h5f.keys())
-            y_true = np.array(h5f[k[0]])
+            y_pred = np.array(h5f[k[0]])
             del h5f, k
         else:
-            y_true = imread(pred_file)
+            y_pred = imread(pred_file)
 
         # Load gt
         if str(gt_file).endswith('.h5'):
             h5f = h5py.File(gt_file, 'r')
             k = list(h5f.keys())
-            y_pred = np.array(h5f[k[0]])
+            y_true = np.array(h5f[k[0]])
             del h5f, k
         else:
-            y_pred = imread(gt_file)
+            y_true = imread(gt_file)
 
         # Checks
         _check_label_array(y_true,'y_true')
