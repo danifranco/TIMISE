@@ -401,7 +401,8 @@ def association_plot_2d(final_file, save_path, show=True, bins=30, draw_std=True
       fig.show()
 
 
-def association_plot_3d(assoc_file, save_path, show=True, draw_plane=True, log_x=True, log_y=True, color="association_type",
+def association_plot_3d(assoc_file, save_path, show=True, draw_plane=True, xaxis_range=None,
+                        yaxis_range=None, log_x=True, log_y=True, color="association_type",
                         symbol="category", shape=[800,800]):
     """Plot 3D errors.
 
@@ -418,6 +419,12 @@ def association_plot_3d(assoc_file, save_path, show=True, draw_plane=True, log_x
 
        draw_plane : bool, optional
            Wheter to draw or not the plane in z=0 to see better the 'over' and 'under' segmentations.
+
+       xaxis_range : array of 2 floats, optional
+           Range of x axis.
+
+       yaxis_range : array of 2 floats, optional
+           Range of x axis.
 
        log_x : bool, optional
            True to apply log in 'x' axis.
@@ -451,7 +458,8 @@ def association_plot_3d(assoc_file, save_path, show=True, draw_plane=True, log_x
     username = os.path.basename(save_path)
     fig.update_layout(title=username+' - Error analysis', scene = dict(xaxis_title='Volume', yaxis_title='Cable length',
                       zaxis_title='Associations'), autosize=False, width=shape[0], height=shape[1],
-                      margin=dict(l=65, r=50, b=65, t=90), font=dict(size=25))
+                      margin=dict(l=65, r=50, b=65, t=90), font=dict(size=25),
+                      xaxis_range=xaxis_range, yaxis_range=yaxis_range)
 
     fig.write_image(os.path.join(save_path,username+"_error_3D.svg"))
     if show:
