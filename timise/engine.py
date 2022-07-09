@@ -1,3 +1,4 @@
+from multiprocessing.sharedctypes import Value
 import os
 import kimimaro
 import h5py
@@ -237,7 +238,7 @@ class TIMISE:
 
     def plot(self, plot_type='error_2d', show=True, individual_plots=False, nbins=30, draw_std=True,
              color_by="association_type", symbol="category", draw_plane=True, xaxis_range=None,
-             yaxis_range=None, log_x=False, log_y=False, order=[], plot_shape=[1100,500]):
+             yaxis_range=None, log_x=False, log_y=False, font_size=25, order=[], plot_shape=[1100,500]):
         """Plot errors in different formats. When multiple predictions are available a common plot is created.
 
            Parameters
@@ -279,6 +280,9 @@ class TIMISE:
            log_y : bool, optional
                Wheter to apply log into x axis. Applied when plot_type is 'error_2d' or 'error_3d'.
 
+           font_size : int, optional
+               Size of the font to be used in the plots. 
+
            order : list of str, optional
                Order each prediction based on a given list. The names need to match the names used for
                each prediction folder. E.g ['prediction1', 'prediction2'].
@@ -306,12 +310,11 @@ class TIMISE:
                 if plot_type == 'error_3d':
                     association_plot_3d(final_file, self.pred_out_dirs[0], show=show, draw_plane=draw_plane,
                                         xaxis_range=xaxis_range, yaxis_range=yaxis_range, log_x=log_x, log_y=log_y,
-                                        color=color_by, symbol=symbol, shape=plot_shape)
+                                        color=color_by, symbol=symbol, font_size=font_size, shape=plot_shape)
             if plot_type == 'error_2d':
                 association_plot_2d(final_file, self.pred_out_dirs[0], show=show, xaxis_range=xaxis_range,
                                     yaxis_range=yaxis_range, log_x=log_x, log_y=log_y, bins=nbins,
-                                    draw_std=draw_std, shape=plot_shape)
-
+                                    draw_std=draw_std, font_size=font_size, shape=plot_shape)
 
     def _get_file_statistics(self, input_file, out_csv_file):
         """Calculate instances statistics such as volume, skeleton size and cable length."""
