@@ -98,7 +98,7 @@ These are the files that the toolbox will create:
 - ``prediction_statarget_mother_matching_filets.csv``: auxiliary matching file used for association metrics. Created when associations metrics are computed. 
 
 ## Jupyter Notebook
-Check out the jupyter notebooks in [examples folder](https://github.com/dfranco/TIMISE/tree/main/examples) for more details.
+Check out the jupyter notebooks in [examples folder](https://github.com/danifranco/TIMISE/blob/main/examples) for more details.
 
 ## Citation
 Under construction . . .
