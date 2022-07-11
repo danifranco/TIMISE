@@ -26,7 +26,7 @@ timise.plot()
 
 # You can also create neuroglancer scripts to visualize them easily. 
 # More info in 'examples/neuroglancer' folder
-a.create_neuroglancer_file("gt", categories=['large'])
+timise.create_neuroglancer_file("gt", categories=['large'])
 ```
 
 Example of the tables printed in the console:

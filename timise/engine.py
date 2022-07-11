@@ -342,7 +342,7 @@ class TIMISE:
 
             method_id = self.method_names.index(method_name)
             input_file = self.pred_files[method_id]
-            df_file = self.pred_out_dirs[method_id]
+            df_file = os.path.join(self.pred_out_dirs[method_id], self.stats_pred_out_filename)
         else:
             input_file = self.gt_file
             df_file = os.path.join(os.path.dirname(self.pred_out_dirs[0]), self.stats_gt_out_filename)

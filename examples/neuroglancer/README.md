@@ -18,7 +18,7 @@ from timise import TIMISE
 timise = TIMISE()
 timise.evaluate(..)
 
-a.create_neuroglancer_file("gt", categories=['large'])
+timise.create_neuroglancer_file("gt", categories=['large'])
 ```
 
 ## Run neuroglancer
