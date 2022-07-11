@@ -1,7 +1,10 @@
 from multiprocessing.sharedctypes import Value
 import os
+import sys
 import kimimaro
 import h5py
+import shutil
+import fileinput
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
@@ -95,12 +98,13 @@ class TIMISE:
         self.final_errors_file = "gt_final.csv"
 
         self.pred_out_dirs = []
+        self.pred_files = []
+        self.method_names = []
 
 
     def evaluate(self, pred_dir, gt_dir, out_dir, data_resolution=[30,8,8], verbose=True):
         self.data_resolution = data_resolution
         self.verbose = verbose
-        self.pred_out_dirs = []
 
         print("*** Preliminary checks . . . ")
         if not os.path.isdir(pred_dir):
@@ -143,6 +147,7 @@ class TIMISE:
 
             pred_out_dir = os.path.join(out_dir, os.path.basename(os.path.normpath(id_)))
             self.pred_out_dirs.append(pred_out_dir)
+            self.method_names.append(os.path.basename(os.path.normpath(id_)))
             map_out_file = os.path.join(pred_out_dir, self.map_out_filename)
             pred_map_th_aux_file = os.path.join(pred_out_dir, "pred_"+self.map_th_aux_file)
             matching_file = os.path.join(pred_out_dir, self.matching_file)
@@ -154,6 +159,7 @@ class TIMISE:
 
             # Ensure .tif/.h5 files are created
             pred_file = check_files(id_, verbose=verbose)
+            self.pred_files.append(pred_file)
 
             ##########################
             # Predictions statistics #
@@ -315,6 +321,59 @@ class TIMISE:
                 association_plot_2d(final_file, self.pred_out_dirs[0], show=show, xaxis_range=xaxis_range,
                                     yaxis_range=yaxis_range, log_x=log_x, log_y=log_y, bins=nbins,
                                     draw_std=draw_std, font_size=font_size, shape=plot_shape)
+
+
+    def create_neuroglancer_file(self, method_name, categories=['all']):
+        """Create a python script to visualize a method prediction in neuroglancer. 
+
+           Parameters
+           ----------
+           method_name : str
+               Name of the method to visualize. Set it to "GT" to visualize the ground truth. 
+               
+           categories : list of str, optional
+               Categories of instances to be selected for the visualization.
+        """
+        if len(self.pred_out_dirs) == 0:
+            raise ValueError("No data found. Did you call TIMISE.evaluate()?")
+        if method_name.lower() != "gt":
+            if method_name not in self.method_names :
+                raise ValueError("{} method not recognized. Available: {}".format(method_name, self.method_names))
+
+            method_id = self.method_names.index(method_name)
+            input_file = self.pred_files[method_id]
+            df_file = self.pred_out_dirs[method_id]
+        else:
+            input_file = self.gt_file
+            df_file = os.path.join(os.path.dirname(self.pred_out_dirs[0]), self.stats_gt_out_filename)
+
+        df = pd.read_csv(df_file, index_col=False) 
+        if categories == ['all']:      
+            label_ids = df['label'].tolist()
+            cat_names = '_all'
+        else:
+            cat_names = ''
+            label_ids = []
+            for cat in categories:
+                label_ids += df[df['category']==cat]['label'].tolist()
+                cat_names+='_'+cat
+        label_ids = str(label_ids)[1:-1]
+
+        f = os.path.join(os.path.dirname(self.pred_out_dirs[0]), "neuroglancer_"+str(method_name)+cat_names+".py")
+        shutil.copyfile("examples/neuroglancer/template.py", f)
+
+        # Replace input file entry, resolution and selected instance labels
+        for line in fileinput.input([f], inplace=True):
+            if line.strip().startswith('input_file='):
+                line = "input_file=\""+input_file+"\"\n"
+            elif line.strip().startswith('scales=SCALE)'):
+                line = "        scales="+str(self.data_resolution)+")\n"
+            elif line.strip().startswith("s.layers[\"segmentation\"].layer.segments ="):
+                line = "    s.layers[\"segmentation\"].layer.segments = {"+label_ids+"}\n"
+            sys.stdout.write(line)
+        
+        print("Neuroglancer script created in {}".format(f))
+        
 
     def _get_file_statistics(self, input_file, out_csv_file):
         """Calculate instances statistics such as volume, skeleton size and cable length."""

@@ -1,13 +1,13 @@
 # A **T**oolbox for **I**dentifying **M**itochondria **I**nstance **S**egmentation **E**rrors
 
-# Installation
+## Installation
 Create a conda environment with all the dependencies:
 ```shell
 conda env create -f environment.yml
 conda activate timise
 ```
 
-# Usage
+## Usage
 
 ```python
 from timise import TIMISE
@@ -23,6 +23,10 @@ timise.summarize()
 
 # Plot errors (2D plot by default) and save in '/home/user/output/model_xx_prediction_folder'
 timise.plot() 
+
+# You can also create neuroglancer scripts to visualize them easily. 
+# More info in 'examples/neuroglancer' folder
+a.create_neuroglancer_file("gt", categories=['large'])
 ```
 
 Example of the tables printed in the console:
@@ -93,9 +97,8 @@ These are the files that the toolbox will create:
 - ``target_daughter_matching_file.csv``: auxiliary matching file used for association metrics. Created when associations metrics are computed. 
 - ``prediction_statarget_mother_matching_filets.csv``: auxiliary matching file used for association metrics. Created when associations metrics are computed. 
 
-
 ## Jupyter Notebook
 Check out the jupyter notebooks in [examples folder](https://github.com/dfranco/TIMISE/tree/main/examples) for more details.
 
-# Citation
+## Citation
 Under construction . . .
