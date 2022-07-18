@@ -14,7 +14,7 @@ from prettytable import PrettyTable
 
 from .vol3d_eval import VOL3Deval
 from .vol3d_util import seg_iou3d_sorted, readh5_handle, readh5, unique_chunk
-
+from ..utils import mAP_out_arrays_to_dataframes
 
 def load_data(args, slices):
     # load data arguments
@@ -120,7 +120,7 @@ def mAP_computation(_args):
     result_p, result_fn, pred_score_sorted = seg_iou3d_sorted(pred_seg, gt_seg, pred_score, slices, group_gt, areaRng, args.chunk_size, args.threshold_crumb, pred_bbox, gt_bbox)
     stop_time = int(round(time.time() * 1000))
     if args.verbose: print('\t-RUNTIME:\t{} [sec]\n'.format((stop_time-start_time)/1000) )
-
+    
     ## 3. Evaluation script for 3D instance segmentation
     v3dEval = VOL3Deval(result_p, result_fn, pred_score_sorted, output_name=args.output_name, verbose=args.verbose)
     if args.do_txt > 0:
@@ -133,6 +133,71 @@ def mAP_computation(_args):
         v3dEval.params.areaRng = areaRng
         v3dEval.accumulate()
         v3dEval.summarize()
+
+def mAP_computation_fast(_args):
+    """
+    Convert the grount truth segmentation and the corresponding predictions to a coco dataset
+    to evaluate this dataset. The 3D volume is comparable to a video-type dataset and will therefore
+    be converted as a video instance segmentation
+    input:
+    output: coco_result_vid.json : This file will be written to your current directory and contains
+                                    the metadata about the dataset.
+    """
+    args = _args
+
+    ## 1. Load data
+    start_time = int(round(time.time() * 1000))
+    
+    def _return_slices():
+        # check if args.slices is well defined and return slices array [slice1, sliceN]
+        if str(args.slices) == "-1":
+            slices = [0, -1]
+        else: # load specific slices only
+            try:
+                slices = np.fromstring(args.slices, sep = ",", dtype=int)
+                 #test only 2 boundaries, boundary1<boundary2, and boundaries positive
+                if (slices.shape[0] != 2) or \
+                    slices[0] > slices[1] or \
+                    slices[0] < 0 or slices[1] < 0:
+                    raise ValueError("\nspecify a valid slice range, ex: -sl '50, 350'\n")
+            except:
+                print("\nplease specify a valid slice range, ex: -sl '50, 350'\n")
+        return slices
+
+    slices = _return_slices()
+
+    if args.verbose: print('\t1. Load data')
+    gt_seg, pred_seg, pred_score, group_gt, group_pred, areaRng, slices, gt_bbox, pred_bbox = load_data(args, slices)
+    
+    # Hack the area range
+    if args.associations:         
+        areaRng = np.zeros((2,2),int)
+        areaRng[0,1] = 1e10
+        areaRng[1,1] = 1e10
+
+    ## 2. create complete mapping of ids for gt and pred:
+    if args.verbose: print('\t2. Compute IoU')
+    result_p, result_fn, pred_score_sorted = seg_iou3d_sorted(pred_seg, gt_seg, pred_score, slices, group_gt, areaRng, args.chunk_size, args.threshold_crumb, pred_bbox, gt_bbox, args.aux_dir)
+    stop_time = int(round(time.time() * 1000))
+
+    if not os.path.exists(args.matching_out_file) or not os.path.exists(args.associations_file):
+        mAP_out_arrays_to_dataframes(result_p, result_fn, args.matching_out_file, args.associations_file, verbose=True)
+        
+    if args.verbose: print('\t-RUNTIME:\t{} [sec]\n'.format((stop_time-start_time)/1000) )
+ 
+    if not args.associations:
+        ## 3. Evaluation script for 3D instance segmentation
+        v3dEval = VOL3Deval(result_p, result_fn, pred_score_sorted, output_name=args.output_name, verbose=args.verbose)
+        if args.do_txt > 0:
+            v3dEval.save_match_p()
+            v3dEval.save_match_fn()
+        if args.do_eval > 0:
+            if args.verbose: print('start evaluation')
+            #Evaluation
+            v3dEval.set_group(group_gt, group_pred)
+            v3dEval.params.areaRng = areaRng
+            v3dEval.accumulate()
+            v3dEval.summarize()
 
 def print_mAP_stats(stats_file):
     """Print mAP statistics."""

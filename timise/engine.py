@@ -10,16 +10,15 @@ import pandas as pd
 from tqdm import tqdm
 from skimage.io import imread
 
-from .mAP_3Dvolume.mAP_engine import mAP_computation, print_mAP_stats
-from .associations import (calculate_associations, print_association_stats, association_plot_2d, association_plot_3d,
+from .mAP_3Dvolume.mAP_engine import print_mAP_stats, mAP_computation_fast, mAP_computation
+from .associations import (calculate_associations_from_map, print_association_stats, association_plot_2d, association_plot_3d,
                            association_multiple_predictions)
 from .matching import calculate_matching_metrics, print_matching_stats
-from .utils import (Namespace, check_files, cable_length, mAP_out_to_dataframe, create_map_aux_file_from_stats,
-                    create_map_aux_file_from_associations)
+from .utils import (Namespace, check_files, cable_length, create_map_aux_file_from_stats, create_map_groups_from_associations)
 
 class TIMISE:
     """TIMISE main class """
-    def __init__(self, metrics=['mAP', 'associations', 'matching'], split_categories=None,
+    def __init__(self, metrics=['mAP', 'associations', 'matching', 'pred_stats'], split_categories=None,
                  split_property=None, split_ths=None, map_chunk_size=10):
         """TIMISE class initialization.
 
@@ -45,8 +44,8 @@ class TIMISE:
             raise ValueError("You need to select at least one metric to calculate")
         metrics = [x.lower() for x in metrics]
         for val in metrics:
-            if val not in ['map', 'associations', 'matching']:
-                raise ValueError("Available metrics: 'mAP', 'associations' and 'matching'. {} is unknown".format(val))
+            if val not in ['map', 'associations', 'matching', 'pred_stats']:
+                raise ValueError("Available metrics: 'mAP', 'associations', 'matching' and 'pred_stats'. {} is unknown".format(val))
 
         if not split_categories is None:
             self.show_categories = True
@@ -75,12 +74,14 @@ class TIMISE:
         else:
             self.map_th = "5000,30000"
         self.map_chunk_size = map_chunk_size
+        
+        self.grouping_file = "group_file.txt"
 
         # mAP
         self.map_out_filename = "map_match_p.txt"
-        self.map_out_csv = "map.csv"
+        self.precomputed_matching_file = "pred_gt_matching_info.csv"
         self.map_stats_file = "map_map.txt"
-        self.map_th_aux_file = "threshold_file.txt"
+        self.map_aux_dir = "map_aux_files"
 
         # Statistic
         self.stats_pred_out_filename = "prediction_stats.csv"
@@ -136,7 +137,7 @@ class TIMISE:
         self._get_file_statistics(self.gt_file, gt_stats_out_file)
         if not self.split_categories is None and self.split_property == 'cable_length' and 'map' in self.metrics:
             print("Creating grouping aux file for mAP calculation . . .")
-            gt_map_th_aux_file = os.path.join(out_dir, "gt_"+self.map_th_aux_file)
+            gt_map_th_aux_file = os.path.join(out_dir, "gt_"+self.grouping_file)
             create_map_aux_file_from_stats(gt_stats_out_file, gt_map_th_aux_file, cat=self.split_categories)
         else:
             gt_map_th_aux_file = ''
@@ -149,7 +150,9 @@ class TIMISE:
             self.pred_out_dirs.append(pred_out_dir)
             self.method_names.append(os.path.basename(os.path.normpath(id_)))
             map_out_file = os.path.join(pred_out_dir, self.map_out_filename)
-            pred_map_th_aux_file = os.path.join(pred_out_dir, "pred_"+self.map_th_aux_file)
+            pred_map_th_aux_file = os.path.join(pred_out_dir, "pred_"+self.grouping_file)
+            map_aux_dir = os.path.join(pred_out_dir, self.map_aux_dir)
+            precomputed_matching_file=os.path.join(pred_out_dir, self.precomputed_matching_file)
             matching_file = os.path.join(pred_out_dir, self.matching_file)
             stats_out_file = os.path.join(pred_out_dir, self.stats_pred_out_filename)
             final_error_file = os.path.join(pred_out_dir, self.final_errors_file)
@@ -161,26 +164,35 @@ class TIMISE:
             pred_file = check_files(id_, verbose=verbose)
             self.pred_files.append(pred_file)
 
+
             ##########################
             # Predictions statistics #
             ##########################
-            if not os.path.exists(stats_out_file):
-                print("Calculating predictions statistics . . .")
-                self._get_file_statistics(pred_file, stats_out_file)
-            else:
-                print("Skipping predictions statistics calculation (seems to be done here: {} )".format(stats_out_file))
-            
+            if 'pred_stats' in self.metrics or 'associations' in self.metrics:
+                if not os.path.exists(stats_out_file):
+                    print("Calculating predictions statistics . . .")
+                    self._get_file_statistics(pred_file, stats_out_file)
+                else:
+                    print("Skipping predictions statistics calculation (seems to be done here: {} )".format(stats_out_file))
+                
 
             ################
             # Associations #
             ################
-            if 'associations' in self.metrics or 'map' in self.metrics:
-                if not os.path.exists(final_error_file):
-                    print("Calculating associations . . .")
-                    calculate_associations(pred_file, self.gt_file, gt_stats_out_file, assoc_stats_file,
-                         assoc_file, final_error_file, self.verbose)
-                else:
-                    print("Skipping association calculation (seems to be done here: {} )".format(final_error_file))
+            if not os.path.exists(precomputed_matching_file) or not os.path.exists(assoc_file):
+                args = Namespace(gt_seg=self.gt_file, predict_seg=pred_file, gt_bbox='', predict_score='', predict_bbox='',
+                                predict_heatmap_channel=-1, threshold=self.map_th, threshold_crumb=0,
+                                chunk_size=self.map_chunk_size, output_name=os.path.join(pred_out_dir, "map"),
+                                group_gt='', group_pred='', do_txt=1, do_eval=1, slices=-1, verbose=verbose, 
+                                matching_out_file=precomputed_matching_file, associations_file=assoc_file, 
+                                aux_dir=map_aux_dir, associations=True)
+                mAP_computation_fast(args)         
+
+            if not os.path.exists(final_error_file):
+                print("Calculating associations . . .")
+                calculate_associations_from_map(assoc_file, gt_stats_out_file, assoc_stats_file, final_error_file, self.verbose)
+            else:
+                print("Skipping association calculation (seems to be done here: {} )".format(final_error_file))
 
             
             #######
@@ -190,22 +202,21 @@ class TIMISE:
                 # Creating the mAP auxiliary file
                 if not self.split_categories is None and self.split_property == 'cable_length':
                     print("Creating grouping aux file for mAP calculation . . .")
-                    
-                    create_map_aux_file_from_associations(stats_out_file, gt_stats_out_file, assoc_file, pred_map_th_aux_file,
-                        cat=self.split_categories)
+                    if not os.path.exists(pred_map_th_aux_file):
+                        create_map_groups_from_associations(map_aux_dir, gt_stats_out_file, assoc_file, pred_map_th_aux_file,
+                            cat=self.split_categories, verbose=verbose)   
                 else:
                     pred_map_th_aux_file = ''
 
                 if not os.path.exists(map_out_file):
                     print("Run mAP code . . .")
                     args = Namespace(gt_seg=self.gt_file, predict_seg=pred_file, gt_bbox='', predict_score='', predict_bbox='',
-                                     predict_heatmap_channel=-1, threshold=self.map_th, threshold_crumb=0,
-                                     chunk_size=self.map_chunk_size, output_name=os.path.join(pred_out_dir, "map"),
-                                     group_gt=gt_map_th_aux_file, group_pred=pred_map_th_aux_file, do_txt=1, do_eval=1, slices=-1, 
-                                     verbose=verbose)
-                    mAP_computation(args)
-
-                    mAP_out_to_dataframe(map_out_file, os.path.join(pred_out_dir, self.map_out_csv), self.verbose)
+                                predict_heatmap_channel=-1, threshold=self.map_th, threshold_crumb=0,
+                                chunk_size=self.map_chunk_size, output_name=os.path.join(pred_out_dir, "map"),
+                                group_gt=gt_map_th_aux_file, group_pred=pred_map_th_aux_file, do_txt=1, do_eval=1, 
+                                slices=-1, verbose=verbose, matching_out_file=precomputed_matching_file, 
+                                associations_file=assoc_file, aux_dir=map_aux_dir, associations=False)
+                    mAP_computation_fast(args)  
                 else:
                     print("Skipping mAP calculation (seems to be done here: {} )".format(map_out_file))
 
@@ -217,7 +228,7 @@ class TIMISE:
                 if not os.path.exists(matching_file):
                     print("Calculating matching metrics . . .")
                     calculate_matching_metrics(self.gt_file, pred_file, matching_file, report_matches=False,
-                        precomputed_matching_file=os.path.join(pred_out_dir, self.map_out_csv), gt_stats_file=gt_stats_out_file,
+                        precomputed_matching_file=precomputed_matching_file, gt_stats_file=gt_stats_out_file,
                         pred_stats_file=stats_out_file, thresh=self.matching_stats_ths)
                 else:
                     print("Skipping matching metrics calculation (seems to be done here: {} )".format(matching_file))
@@ -297,8 +308,8 @@ class TIMISE:
                Defines the shape of the plot.
         """
         if not 'associations' in self.metrics:
-            print("You can not plot as association metrics were not calculated")
-            return
+            raise ValueError("You need to compute associations to create the neuroglancer file. "
+                             "TIMISE(metrics=['associations'])")
 
         assert plot_type in ['error_2d', 'error_3d']
         assert color_by in ['association_type', 'category']
@@ -334,6 +345,9 @@ class TIMISE:
            categories : list of str, optional
                Categories of instances to be selected for the visualization.
         """
+        if not 'pred_stats' in self.metrics:
+            raise ValueError("You need to compute prediction stats to create the neuroglancer file. "
+                             "TIMISE(metrics=['pred_stats'])")
         if len(self.pred_out_dirs) == 0:
             raise ValueError("No data found. Did you call TIMISE.evaluate()?")
         if method_name.lower() != "gt":

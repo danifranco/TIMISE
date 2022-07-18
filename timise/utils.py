@@ -67,36 +67,65 @@ def cable_length(vertices, edges, res = [1,1,1]):
     dist = np.sqrt(dist)
     return np.sum(dist)
 
-def mAP_out_to_dataframe(input_file, output_file, verbose=True):
-    if verbose: print("Parsing {} file to build a dataframe . . .".format(input_file))
-    search = open(input_file)
-    pred_id = []
-    pred_size = []
-    iou = []
-    gt_id = []
-    gt_size = []
-    for line in search:
-        line = line.strip()
-        if line:
-            if "#" not in line:
-                line = line.split()
-                pred_id.append(int(line[0]))
-                pred_size.append(int(line[1]))
-                iou.append(float(line[4]))
-                gt_id.append(int(line[2]))
-                gt_size.append(int(line[3]))
+def mAP_out_arrays_to_dataframes(pred_arr, missing_arr, matching_out_file, out_assoc_file, verbose=True):
+    gt_ids, gt_sizes, pred_ids, pred_sizes, ious = [], [], [], [], []
 
-    # Create the dataframe
-    data_tuples = list(zip(gt_id,gt_size,pred_id,pred_size,iou))
+    gt_to_pred = {}
+    pred_to_gt = {}
+    for i in range(pred_arr.shape[0]):
+        row = pred_arr[i]
+        pred_id = int(row[0])
+        gt_id = int(row[2])
+
+        # Matching stats
+        gt_ids.append(gt_id)
+        gt_sizes.append(int(row[3]))
+        pred_ids.append(pred_id)
+        pred_sizes.append(int(row[1]))
+        ious.append(float(row[4]))
+
+        if gt_id != 0:
+            # 'over-segmentation'
+            if gt_id in gt_to_pred:
+                gt_to_pred[gt_id].append(pred_id)
+            # 'one-to-one'
+            else:
+                gt_to_pred[gt_id] = [pred_id]
+            pred_to_gt[pred_id] = [gt_id]
+
+    for i in range(missing_arr.shape[0]):
+        row = missing_arr[i]
+        gt_id = int(row[2])
+        iou = float(row[4])
+        # 'missing'
+        if iou == 0:
+            gt_to_pred[gt_id] = []
+        # 'under-segmentation' and 'many-to-many'
+        else:
+            pred_id = int(row[0])
+            gt_match_inst = pred_to_gt[pred_id]
+            if len(gt_match_inst) == 1:
+                gt_match_inst = gt_match_inst[0]
+            else: 
+                gt_match_inst = str(gt_match_inst)
+            pred_to_gt[pred_id].append(gt_id)
+            new_dic_key = str(pred_to_gt[pred_id])
+            gt_to_pred[new_dic_key] = gt_to_pred.pop(gt_match_inst)
+
+    # Save associations
+    data_tuples = list( zip( gt_to_pred.values(), gt_to_pred.keys() ) )
+    df_assoc = pd.DataFrame(data_tuples, columns=['predicted', 'gt'])
+    df_assoc.to_csv(out_assoc_file)
+    if verbose: print("Association dataframe stored in {} . . .".format(out_assoc_file))
+
+    # Save matching stats
+    data_tuples = list(zip(gt_ids,gt_sizes,pred_ids,pred_sizes,ious))
     df = pd.DataFrame(data_tuples, columns=['gt_id','gt_size','pred_id','pred_size','iou'])
     df = df.sort_values(by=['gt_id','iou'])
-
-    # Drop background id
-    indexNames = df[df['gt_id'] == 0].index
+    indexNames = df[df['gt_id'] == 0].index # Drop background id
     df.drop(indexNames, inplace=True)
-
-    df.to_csv(output_file, index=False)
-    if verbose: print("Dataframe stored in {} . . .".format(output_file))
+    df.to_csv(matching_out_file, index=False)
+    if verbose: print("Matching dataframe stored in {} . . .".format(matching_out_file))
 
 class Namespace:
     def __init__(self, **kwargs):
@@ -120,7 +149,7 @@ def create_map_aux_file_from_stats(stats_file, out_file, cat=['small','medium','
     aa.close()
     np.savetxt(out_file, result, '%d')
 
-def str_list_to_ints_list(df, col_name):
+def str_list_to_ints_list(df, col_name, void_to_number=True):
     """Return a list converting strings to list of ints. This happens when creating 
        the dataframe from dictionary containing lists."""
     list = df[col_name]
@@ -128,18 +157,21 @@ def str_list_to_ints_list(df, col_name):
     for l in list:
         new_l = l.replace(']','').replace('[','').split(", ")
         if new_l[0] == '':
-            new_list.append([-1])
+            if void_to_number:
+                new_list.append([-1])
+            else:
+                new_list.append([])
         else:
             new_list.append([int(a) for a in new_l])
     return new_list
 
-def create_map_aux_file_from_associations(pred_stats_file, gt_stats_file, association_file,  
-    out_file, cat=['small','medium','large']):
+def create_map_groups_from_associations(map_aux_dir, gt_stats_file, association_file, out_file, 
+        cat=['small','medium','large'], verbose=True):
     """Create an auxiliary file for mAP calculation based on gt categories using the association info"""
     df_assoc = pd.read_csv(association_file, index_col=False)
-    df_pred = pd.read_csv(pred_stats_file, index_col=False)
+    pred_instances = np.load(os.path.join(map_aux_dir, "pred_labels.npy")).tolist()
     df_gt = pd.read_csv(gt_stats_file, index_col=False)
-
+    
     # Change columns from str to list of ints
     df_assoc['predicted'] = str_list_to_ints_list(df_assoc, 'predicted')
     df_assoc['gt'] = str_list_to_ints_list(df_assoc, 'gt')
@@ -149,7 +181,6 @@ def create_map_aux_file_from_associations(pred_stats_file, gt_stats_file, associ
     for i, c in enumerate(cat):
         cat_codes[c] = i
 
-    pred_instances = df_pred['label'].tolist()
     result = np.zeros([len(pred_instances),2])
     
     # Capture prediction instances categories looking the instance 
@@ -164,8 +195,8 @@ def create_map_aux_file_from_associations(pred_stats_file, gt_stats_file, associ
         line = df_assoc[query]
 
         if line.size == 0:
-            c = df_pred[df_pred['label']==pred_ins]['category'].iloc[0]
-            pred_category = cat_codes[c]
+            # For the FP leave them as the first category, e.g. small
+            pred_category = cat_codes[cat[0]]
         else:
             gt_instances = line['gt'].iloc[0]
             pred_category = 0
@@ -176,4 +207,5 @@ def create_map_aux_file_from_associations(pred_stats_file, gt_stats_file, associ
 
         result[i, 0] = pred_ins
         result[i, 1] = pred_category
+    if verbose: print("MAP group file created in {} . . .".format(out_file))
     np.savetxt(out_file, result, '%d')

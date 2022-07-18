@@ -263,7 +263,7 @@ def calculate_matching_metrics(gt_file, pred_file, out_file, precomputed_matchin
         value = tuple(map(_single,thresh))  
         out_results = pd.DataFrame.from_dict([v for v in value])   
 
-    out_results.to_csv(out_file)
+    out_results.to_csv(out_file, index=False)
 
 
 def print_matching_stats(stats_csv, show_categories=False):

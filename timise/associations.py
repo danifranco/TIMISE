@@ -9,27 +9,23 @@ from skimage.io import imread
 from prettytable import PrettyTable
 import plotly.express as px
 
-# from .timagetk_files.image_overlap import fast_image_overlap3d
-# from .timagetk_files.labelled_image import LabelledImage
-from .timagek_files.image_overlap import fast_image_overlap3d
-from .timagek_files.labelled_image import LabelledImage
+from .utils import str_list_to_ints_list
 
-def calculate_associations(pred_file, gt_file, gt_stats_file, assoc_stats_file, assoc_file, final_file, verbose=True):
-    """Calculate associations between instances. Based on the work presented in `Assessment of deep learning
+def calculate_associations_from_map(assoc_file, gt_stats_file, assoc_stats_file, final_file, verbose=True):
+    """Calculate associations between instances. Based on the idea presented in `Assessment of deep learning
        algorithms for 3D instance segmentation of confocal image datasets
        <https://www.biorxiv.org/content/10.1101/2021.06.09.447748v1.full>`_.
-       Code `here <https://mosaic.gitlabpages.inria.fr/publications/seg_compare/evaluation.html>`_.
 
        Parameters
        ----------
-       pred_file : str
+       assoc_file : str
            Path to the file containing the predicted instances.
-
-       gt_file : str
-           Path to the file containing the ground truth instances.
 
        gt_stats_file : str
            Path to the prediction statistics.
+
+       assoc_stats_file : str
+           Path to the file containing the predicted instances.
 
        final_file : str
            Path where the final error file will be stored.
@@ -37,134 +33,41 @@ def calculate_associations(pred_file, gt_file, gt_stats_file, assoc_stats_file, 
        verbose : bool, optional
            Wheter to be more verbose.
     """
-    # Calculating the matching between instances
-    out_dir = os.path.dirname(final_file)
-    pred_matching_file = os.path.join(out_dir, "target_mother_matching_file.csv")
-    gt_matching_file = os.path.join(out_dir, "target_daughter_matching_file.csv")
-    if not os.path.exists(pred_matching_file) or not os.path.exists(gt_matching_file):
-        if verbose:
-            print("Associations between images {} and {}".format(pred_file,gt_file))
-            print("Image loading . . .")
+    assoc_df = pd.read_csv(assoc_file, index_col=False)
 
-        # Load pred
-        if str(pred_file).endswith('.h5'):
-            h5f = h5py.File(pred_file, 'r')
-            k = list(h5f.keys())
-            y_pred = LabelledImage(np.array(h5f[k[0]]), no_label_id=0)
-            del h5f, k
-        else:
-            y_pred = LabelledImage(imread(pred_file), no_label_id=0)
+    # Categorize associations and save again 
+    if not 'association_type' in assoc_df:
+        assoc_df['predicted'] = str_list_to_ints_list(assoc_df, 'predicted', void_to_number=False)
+        assoc_df['gt'] = str_list_to_ints_list(assoc_df, 'gt', void_to_number=False)
+        assoc_df['association_type'] = assoc_df.apply(lambda row: lab_association(row), axis=1)
+        assoc_df = assoc_df.sort_values(by=['association_type'])
 
-        # Load gt
-        if str(gt_file).endswith('.h5'):
-            h5f = h5py.File(gt_file, 'r')
-            k = list(h5f.keys())
-            y_true = LabelledImage(np.array(h5f[k[0]]), no_label_id=0)
-            del h5f, k
-        else:
-            y_true = LabelledImage(imread(gt_file), no_label_id=0)
-
-        if verbose: print("Calculation of matching between instances . . .")
-        df_pred = fast_image_overlap3d(y_pred, y_true, method='target_mother', ds=1, verbose=verbose)
-        df_pred.columns = ['pred_id', 'gt_id', 'iou']
-        df_gt = fast_image_overlap3d(y_pred, y_true, method='target_daughter', ds=1, verbose=verbose)
-        df_gt.columns = ['pred_id', 'gt_id', 'iou']
-
-        del y_pred,y_true
-        # Save matching files
-        df_pred.to_csv(pred_matching_file)
-        df_gt.to_csv(gt_matching_file)
-    else:
-        if verbose: print("Association matching seems to be computed. Loading from file: {}".format(pred_matching_file))
-        df_pred = pd.read_csv(pred_matching_file, index_col=False)
-        df_gt = pd.read_csv(gt_matching_file, index_col=False)
-
-    # Delete matching with 0 IoU
-    df_pred = df_pred.loc[~(df_pred.iou == 0)].copy()
-    df_gt = df_gt.loc[~(df_gt.iou == 0)].copy()
-    all_gt_labels_processed = np.unique(np.array(df_gt['gt_id'].tolist()))
-
-    # Associate each prediction/gt instances in which it is the most included
-    df_pred = df_pred.loc[df_pred.groupby('pred_id')['iou'].idxmax()]
-    df_gt = df_gt.loc[df_gt.groupby('gt_id')['iou'].idxmax()]
-
-    # Convert in dict
-    pred_in_gt = df_pred[['pred_id', 'gt_id']].set_index('pred_id').to_dict()['gt_id']
-    gt_in_pred = df_gt[['gt_id', 'pred_id']].set_index('gt_id').to_dict()['pred_id']
-    pred_labels = list(set(df_pred.pred_id.values) | set(df_gt.pred_id.values))
-    gt_labels = list(set(df_pred.gt_id.values) | set(df_gt.gt_id.values))
-    label_tp_list = [(m, 'l') for m in pred_labels] + [(d, 'r') for d in gt_labels]
-    lg2nid = dict(zip(label_tp_list, range(len(label_tp_list))))
-
-    # Create the graph
-    G = nx.Graph()
-    G.add_nodes_from([(nid, {'label': lab, 'group': g}) for (lab, g), nid in lg2nid.items()])
-    pred_to_gt_list = [(lg2nid[(i, 'l')], lg2nid[(j, 'r')]) for i, j in pred_in_gt.items()]
-    G.add_edges_from(pred_to_gt_list)
-    gt_to_pred_list = [(lg2nid[(i, 'r')], lg2nid[(j, 'l')]) for i, j in gt_in_pred.items()]
-    G.add_edges_from(gt_to_pred_list)
-
-    # Overlap analysis: get the predicted instances <--> ground truth instances from the connected subgraph in G
-    connected_graph = [list(G.subgraph(c)) for c in nx.connected_components(G)]
-
-    # Gather all the connected subgraph and reindex according to the image labels
-    nid2lg = {v: k for k, v in lg2nid.items()}
-    out_results = []
-    for c in connected_graph:
-        if len(c) > 1:  # at least two labels
-            preds, gt = [], []
-            for nid in c:
-                if nid2lg[nid][1] == 'l':
-                    preds.append(nid2lg[nid][0])
-                else:
-                    gt.append(nid2lg[nid][0])
-            out_results.append({'predicted': preds, 'gt': gt})
-
-    if verbose: print("Calculating rest of missing instances not present in associations . . .")
-    if str(gt_file).endswith('.h5'):
-        h5f = h5py.File(gt_file, 'r')
-        k = list(h5f.keys())
-        img = np.array(h5f[k[0]])
-        del h5f, k
-    else:
-        img = imread(gt_file)
-
-    labels = np.unique(img)[1:] # remove background
-    total_instances = len(labels)
-    new_gt_labels_processed = []
-    for instance in labels:
-        if instance not in all_gt_labels_processed:
-            out_results.append({'predicted': [], 'gt': [instance]})
-            new_gt_labels_processed.append(instance)
-    all_gt_labels_processed = all_gt_labels_processed.tolist() + new_gt_labels_processed
-    if verbose: print("Total gt labels: {} (processed {})".format(total_instances, len(all_gt_labels_processed)))
-
-    out_results = pd.DataFrame(out_results)
-    out_results['association_type'] = out_results.apply(lambda row: lab_association(row), axis=1)
+        out_dir = os.path.dirname(final_file)
+        assoc_df.to_csv(os.path.join(out_dir, assoc_file), index=False)
 
     # Creating association statistics to not do it everytime the user wants to print them
     # and modifying the predictions stats to insert information about the association
-    gt_stats = pd.read_csv(gt_stats_file, index_col=False)
-    gt_stats['counter'] = 0
-    gt_stats['association_counter'] = 0
-    gt_stats['association_type'] = 'over-segmentation'
-    _labels = np.array(gt_stats['label'].tolist())
-    _counter = np.array(gt_stats['counter'].tolist())
-    _association_counter = np.array(gt_stats['association_counter'].tolist(), dtype=np.float32)
-    _association_type = np.array(gt_stats['association_type'].tolist())
-    if 'category' in gt_stats.columns:
+    final_df = pd.read_csv(gt_stats_file, index_col=False)
+    final_df['counter'] = 0
+    final_df['association_counter'] = 0
+    final_df['association_type'] = 'over-segmentation'
+    _labels = np.array(final_df['label'].tolist())
+    _counter = np.array(final_df['counter'].tolist())
+    _association_counter = np.array(final_df['association_counter'].tolist(), dtype=np.float32)
+    _association_type = np.array(final_df['association_type'].tolist())
+    if 'category' in final_df.columns:
         cell_statistics = []
-        categories = pd.unique(gt_stats['category']).tolist()
+        categories = pd.unique(final_df['category']).tolist()
         for i in range(len(categories)):
             cell_statistics.append({'one-to-one': 0, 'missing': 0, 'over-segmentation': 0, 'under-segmentation': 0, 'many-to-many': 0})
     else:
         cell_statistics = {'one-to-one': 0, 'missing': 0, 'over-segmentation': 0, 'under-segmentation': 0, 'many-to-many': 0}
-    out_results = out_results.reset_index()
-    for index, row in out_results.iterrows():
+    assoc_df = assoc_df.reset_index()
+    for index, row in assoc_df.iterrows():
         gt_instances = row['gt']
         for gt_ins in gt_instances:
             if type(cell_statistics) is list:
-                result = gt_stats[gt_stats['label']==gt_ins]
+                result = final_df[final_df['label']==gt_ins]
                 tag = result['category'].iloc[0]
                 cell_statistics[categories.index(tag)][row['association_type']] += 1
             else:
@@ -206,24 +109,24 @@ def calculate_associations(pred_file, gt_file, gt_stats_file, assoc_stats_file, 
             _counter[itemindex] += 1
             _association_type[itemindex] = 'other'
 
-    gt_stats['counter'] = _counter
-    gt_stats['association_counter'] = _association_counter
-    gt_stats['association_type'] = _association_type
+    final_df['counter'] = _counter
+    final_df['association_counter'] = _association_counter
+    final_df['association_type'] = _association_type
     if type(cell_statistics) is list:
-        df_out = pd.DataFrame.from_dict([ {k:[v] for k,v in a.items()} for a in cell_statistics] )
-        df_out = df_out.set_axis(categories)
+        assoc_summary_df = pd.DataFrame.from_dict([ {k:[v] for k,v in a.items()} for a in cell_statistics] )
+        assoc_summary_df = assoc_summary_df.set_axis(categories)
     else:
-        df_out = pd.DataFrame.from_dict([{k:[v] for k,v in cell_statistics.items()}])
-        df_out = df_out.set_axis(['all'])
+        assoc_summary_df = pd.DataFrame.from_dict([{k:[v] for k,v in cell_statistics.items()}])
+        assoc_summary_df = assoc_summary_df.set_axis(['all'])
 
-    # Saving dataframes
-    gt_stats.to_csv(final_file)
-    df_out.to_csv(os.path.join(out_dir, assoc_stats_file))
-    out_results.to_csv(os.path.join(out_dir, assoc_file))
+    # Save association final results and a summary to print it easily 
+    final_df.to_csv(final_file, index=False)
+    assoc_summary_df.to_csv(os.path.join(out_dir, assoc_stats_file), index=False)
 
 
 def lab_association(row):
     """Determines the association type."""
+    
     if len(row['predicted']) == 0:
         return 'missing'
     elif len(row['predicted']) == 1:
@@ -252,13 +155,12 @@ def print_association_stats(stats_csv, show_categories=False):
     if not os.path.exists(stats_csv):
         raise ValueError('File {} not found. Did you call TIMISE.evaluate()?'.format(stats_csv))
 
-    df_out = pd.read_csv(stats_csv, index_col=0)
+    df_out = pd.read_csv(stats_csv)
     total_instances_all = 0
     df_len = df_out.shape[0]
 
     max_str_size = 0
     total_assoc = [0, 0, 0, 0, 0]
-
     for i in range(df_len):
         total_instances = 0
         cell_statistics = {}
@@ -499,7 +401,7 @@ def association_multiple_predictions(prediction_dirs, assoc_stats_file, show=Tru
     """
     dataframes = []
     for folder in prediction_dirs:
-        df_method = pd.read_csv(os.path.join(folder,assoc_stats_file), index_col=0)
+        df_method = pd.read_csv(os.path.join(folder,assoc_stats_file))
         df_method['method'] = os.path.basename(folder)
         dataframes.append(df_method)
 
