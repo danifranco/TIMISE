@@ -1,6 +1,5 @@
 from bdb import set_trace
 import os
-from tkinter.tix import ROW
 import h5py
 import numpy as np
 import pandas as pd
@@ -120,7 +119,7 @@ def mAP_out_arrays_to_dataframes(pred_arr, missing_arr, matching_out_file, out_a
             # Obtain the instance in the gt that matches it
             gt_match_inst = pred_to_gt[pred_id]
             old_key = gt_match_inst[0]
-        
+
             # Insert the relation if it is not registered yet
             if not gt_id in gt_keys:
                 gt_keys[gt_id] = str([gt_id])
@@ -163,7 +162,7 @@ def create_map_aux_file_from_stats(stats_file, out_file, cat=['small','medium','
     cat_codes = {}
     for i, c in enumerate(cat):
         cat_codes[c] = i
-    
+
     for i in range(1,len(bb)):
         line = bb[i].replace('\n','').split(',')
         result[i-1, 0] = int(line[0])
@@ -172,7 +171,7 @@ def create_map_aux_file_from_stats(stats_file, out_file, cat=['small','medium','
     np.savetxt(out_file, result, '%d')
 
 def str_list_to_ints_list(df, col_name, void_to_number=True):
-    """Return a list converting strings to list of ints. This happens when creating 
+    """Return a list converting strings to list of ints. This happens when creating
        the dataframe from dictionary containing lists."""
     list = df[col_name]
     new_list = []
@@ -187,25 +186,25 @@ def str_list_to_ints_list(df, col_name, void_to_number=True):
             new_list.append([int(a) for a in new_l])
     return new_list
 
-def create_map_groups_from_associations(map_aux_dir, gt_stats_file, association_file, out_file, 
+def create_map_groups_from_associations(map_aux_dir, gt_stats_file, association_file, out_file,
         cat=['small','medium','large'], verbose=True):
     """Create an auxiliary file for mAP calculation based on gt categories using the association info"""
     df_assoc = pd.read_csv(association_file, index_col=False)
     pred_instances = np.load(os.path.join(map_aux_dir, "pred_labels.npy")).tolist()
     df_gt = pd.read_csv(gt_stats_file, index_col=False)
-    
+
     # Change columns from str to list of ints
     df_assoc['predicted'] = str_list_to_ints_list(df_assoc, 'predicted')
     df_assoc['gt'] = str_list_to_ints_list(df_assoc, 'gt')
 
-    # Create categories  
+    # Create categories
     cat_codes = {}
     for i, c in enumerate(cat):
         cat_codes[c] = i
 
     result = np.zeros([len(pred_instances),2])
-    
-    # Capture prediction instances categories looking the instance 
+
+    # Capture prediction instances categories looking the instance
     # they are associated with in the gt
     for i, pred_ins in enumerate(pred_instances):
         query = []
