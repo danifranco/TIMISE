@@ -1,4 +1,6 @@
+from bdb import set_trace
 import os
+from tkinter.tix import ROW
 import h5py
 import numpy as np
 import pandas as pd
@@ -71,6 +73,7 @@ def mAP_out_arrays_to_dataframes(pred_arr, missing_arr, matching_out_file, out_a
     gt_ids, gt_sizes, pred_ids, pred_sizes, ious = [], [], [], [], []
 
     gt_to_pred = {}
+    gt_keys = {}
     pred_to_gt = {}
     for i in range(pred_arr.shape[0]):
         row = pred_arr[i]
@@ -93,39 +96,58 @@ def mAP_out_arrays_to_dataframes(pred_arr, missing_arr, matching_out_file, out_a
                 gt_to_pred[gt_id] = [pred_id]
             pred_to_gt[pred_id] = [gt_id]
 
+    # Save matching stats
+    data_tuples = list(zip(gt_ids,gt_sizes,pred_ids,pred_sizes,ious))
+    df = pd.DataFrame(data_tuples, columns=['gt_id','gt_size','pred_id','pred_size','iou'])
+    indexNames = df[df['gt_id'] == 0].index # Drop background id
+    df.drop(indexNames, inplace=True)
+    df = df.sort_values(by=['gt_id','iou'])
+    df.to_csv(matching_out_file, index=False)
+    if verbose: print("Matching dataframe stored in {} . . .".format(matching_out_file))
+
     for i in range(missing_arr.shape[0]):
         row = missing_arr[i]
         gt_id = int(row[2])
         iou = float(row[4])
+
         # 'missing'
         if iou == 0:
             gt_to_pred[gt_id] = []
         # 'under-segmentation' and 'many-to-many'
         else:
             pred_id = int(row[0])
+
+            # Obtain the instance in the gt that matches it
             gt_match_inst = pred_to_gt[pred_id]
-            if len(gt_match_inst) == 1:
-                gt_match_inst = gt_match_inst[0]
-            else: 
-                gt_match_inst = str(gt_match_inst)
-            pred_to_gt[pred_id].append(gt_id)
-            new_dic_key = str(pred_to_gt[pred_id])
-            gt_to_pred[new_dic_key] = gt_to_pred.pop(gt_match_inst)
+            old_key = gt_match_inst[0]
+        
+            # Insert the relation if it is not registered yet
+            if not gt_id in gt_keys:
+                gt_keys[gt_id] = str([gt_id])
+
+            # Build the new dict key and update the old_key if it was already changed
+            if old_key in gt_keys:
+                inst_to_update = str(gt_keys[gt_id] + gt_keys[old_key])
+                old_key = gt_keys[old_key]
+            else:
+                inst_to_update = str(gt_keys[gt_id] + str(gt_match_inst))
+            inst_to_update = inst_to_update.replace('[',' ').replace(']',' ').replace(',','').split()
+            inst_to_update = [int(x) for x in inst_to_update]
+            new_dic_key = str(inst_to_update)
+
+            # Update all the instances with the new dict key for future matchings
+            for ins in inst_to_update:
+                gt_keys[ins] = str(inst_to_update)
+
+            # Update the old entry with the new one
+            gt_to_pred[new_dic_key] = gt_to_pred.pop(old_key)
 
     # Save associations
     data_tuples = list( zip( gt_to_pred.values(), gt_to_pred.keys() ) )
     df_assoc = pd.DataFrame(data_tuples, columns=['predicted', 'gt'])
-    df_assoc.to_csv(out_assoc_file)
+    df_assoc.to_csv(out_assoc_file, index=False)
     if verbose: print("Association dataframe stored in {} . . .".format(out_assoc_file))
 
-    # Save matching stats
-    data_tuples = list(zip(gt_ids,gt_sizes,pred_ids,pred_sizes,ious))
-    df = pd.DataFrame(data_tuples, columns=['gt_id','gt_size','pred_id','pred_size','iou'])
-    df = df.sort_values(by=['gt_id','iou'])
-    indexNames = df[df['gt_id'] == 0].index # Drop background id
-    df.drop(indexNames, inplace=True)
-    df.to_csv(matching_out_file, index=False)
-    if verbose: print("Matching dataframe stored in {} . . .".format(matching_out_file))
 
 class Namespace:
     def __init__(self, **kwargs):
