@@ -6,10 +6,8 @@ This script allows you to obtain gt instance and prediction instance matches for
 """
 
 import time
-import os, sys
-import argparse
+import os
 import numpy as np
-import h5py
 from prettytable import PrettyTable
 
 from .vol3d_eval import VOL3Deval

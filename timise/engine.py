@@ -1,4 +1,3 @@
-from multiprocessing.sharedctypes import Value
 import os
 import sys
 import kimimaro
@@ -7,7 +6,6 @@ import shutil
 import fileinput
 import numpy as np
 import pandas as pd
-from tqdm import tqdm
 from skimage.io import imread
 
 from .mAP_3Dvolume.mAP_engine import print_mAP_stats, mAP_computation_fast, mAP_computation
