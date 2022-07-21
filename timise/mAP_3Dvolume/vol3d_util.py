@@ -240,7 +240,7 @@ def seg_iou3d(pred, gt, slices, th_group=None, areaRng=[0,1e10], todo_id=None, c
     if pred_bbox is None:
         if not os.path.exists(os.path.join(aux_dir, "pred_bbox.npy")):
             if verbose: print('\t compute bounding boxes')
-            pred_bbox = seg_bbox3d(pred, slices, uid = todo_id, chunk_size = chunk_size)[:,1:]
+            pred_bbox = seg_bbox3d(pred, slices, uid = todo_id, chunk_size = chunk_size, verbose=verbose)[:,1:]
             np.save(os.path.join(aux_dir, "pred_bbox.npy"), pred_bbox)
         else:
             pred_bbox = np.load(os.path.join(aux_dir, "pred_bbox.npy"))
@@ -343,7 +343,7 @@ def volume_to_cable_length(vol,resolution=[30,8,8],dust_threshold=100):
         result[i,1] = l
     return result
     
-def seg_iou3d_sorted(pred, gt, score, slices, th_group=None, areaRng = [0,1e10], chunk_size = 250, crumb_size = -1, pred_bbox=None, gt_bbox=None, aux_dir="aux"):
+def seg_iou3d_sorted(pred, gt, score, slices, th_group=None, areaRng = [0,1e10], chunk_size = 250, crumb_size = -1, pred_bbox=None, gt_bbox=None, aux_dir="aux", verbose=True):
     # pred_bbox: precomputed if needed
     # pred_score: Nx2 [id, score]
     # 1. sort prediction by confidence score
@@ -359,7 +359,7 @@ def seg_iou3d_sorted(pred, gt, score, slices, th_group=None, areaRng = [0,1e10],
     os.makedirs(aux_dir, exist_ok=True)
     np.save(os.path.join(aux_dir, "pred_labels.npy"), pred_id[pred_id_sorted])
     
-    result_p, result_fn = seg_iou3d(pred, gt, slices, th_group, areaRng, pred_id[pred_id_sorted], chunk_size, crumb_size, pred_bbox, gt_bbox, aux_dir)
+    result_p, result_fn = seg_iou3d(pred, gt, slices, th_group, areaRng, pred_id[pred_id_sorted], chunk_size, crumb_size, pred_bbox, gt_bbox, aux_dir, verbose=verbose)
     # format: pid,pc,p_score, gid,gc,iou
     pred_score_sorted = relabel[pred_id_sorted].reshape(-1,1)
     return result_p, result_fn, pred_score_sorted

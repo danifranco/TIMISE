@@ -16,7 +16,7 @@ from .vol3d_eval import VOL3Deval
 from .vol3d_util import seg_iou3d_sorted, readh5_handle, readh5, unique_chunk
 from ..utils import mAP_out_arrays_to_dataframes
 
-def load_data(args, slices):
+def load_data(args, slices, verbose=True):
     # load data arguments
     pred_seg = readh5_handle(args.predict_seg)
     gt_seg = readh5_handle(args.gt_seg)
@@ -35,7 +35,7 @@ def load_data(args, slices):
         raise ValueError('Warning: size mismatch. gt: {}, pred: '.format(sz_gt,sz_pred))
 
     if args.predict_score != '':
-        print('\t\t Load prediction score')
+        if verbose: print('\t\t Load prediction score')
         # Nx2: pred_id, pred_sc
         if '.h5' in args.predict_score:
             pred_score = readh5(args.predict_score)
@@ -49,7 +49,7 @@ def load_data(args, slices):
         if pred_score.shape[1] != 2:
             pred_score = pred_score.T
     else: # default
-        print('\t\t Assign prediction score')
+        if verbose: print('\t\t Assign prediction score')
         # assign same weight
         """
         ui = unique_chunk(pred_seg, slices, chunk_size = args.chunk_size, do_count = False)
@@ -167,7 +167,7 @@ def mAP_computation_fast(_args):
     slices = _return_slices()
 
     if args.verbose: print('\t1. Load data')
-    gt_seg, pred_seg, pred_score, group_gt, group_pred, areaRng, slices, gt_bbox, pred_bbox = load_data(args, slices)
+    gt_seg, pred_seg, pred_score, group_gt, group_pred, areaRng, slices, gt_bbox, pred_bbox = load_data(args, slices, args.verbose)
     
     # Hack the area range
     if args.associations:         
@@ -177,7 +177,8 @@ def mAP_computation_fast(_args):
 
     ## 2. create complete mapping of ids for gt and pred:
     if args.verbose: print('\t2. Compute IoU')
-    result_p, result_fn, pred_score_sorted = seg_iou3d_sorted(pred_seg, gt_seg, pred_score, slices, group_gt, areaRng, args.chunk_size, args.threshold_crumb, pred_bbox, gt_bbox, args.aux_dir)
+    result_p, result_fn, pred_score_sorted = seg_iou3d_sorted(pred_seg, gt_seg, pred_score, slices, group_gt, areaRng, args.chunk_size, 
+        args.threshold_crumb, pred_bbox, gt_bbox, args.aux_dir, args.verbose)
     stop_time = int(round(time.time() * 1000))
 
     if not os.path.exists(args.matching_out_file) or not os.path.exists(args.associations_file):
