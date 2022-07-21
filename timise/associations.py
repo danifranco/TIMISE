@@ -62,9 +62,10 @@ def calculate_associations_from_map(assoc_file, gt_stats_file, assoc_stats_file,
         cell_statistics = {'one-to-one': 0, 'missing': 0, 'over-segmentation': 0, 'under-segmentation': 0, 'many-to-many': 0}
     assoc_df = assoc_df.reset_index()
     for index, row in assoc_df.iterrows():
-        gt_instances = row['gt']
-        gt_instances = gt_instances.replace('[',' ').replace(']',' ').replace(',','').split()
+        gt_instances = row['gt'].replace('[',' ').replace(']',' ').replace(',','').split()
         gt_instances = [int(x) for x in gt_instances]
+        pred_instances = row['predicted'].replace('[',' ').replace(']',' ').replace(',','').split()
+        pred_instances = [int(x) for x in pred_instances]
         for gt_ins in gt_instances:
             if type(cell_statistics) is list:
                 result = final_df[final_df['label']==gt_ins]
@@ -75,7 +76,7 @@ def calculate_associations_from_map(assoc_file, gt_stats_file, assoc_stats_file,
         if row['association_type'] == 'over-segmentation':
             itemindex = np.where(_labels==gt_instances)
             _counter[itemindex] += 1
-            _association_counter[itemindex] = len(row['predicted'])
+            _association_counter[itemindex] = len(pred_instances)
             _association_type[itemindex] = 'over'
         elif row['association_type'] == 'under-segmentation':
             for ins in gt_instances:
@@ -84,7 +85,7 @@ def calculate_associations_from_map(assoc_file, gt_stats_file, assoc_stats_file,
                 _association_counter[itemindex] = -len(gt_instances)
                 _association_type[itemindex] = 'under'
         elif row['association_type'] == 'many-to-many':
-            pred_count = len(row['predicted'])
+            pred_count = len(pred_instances)
             if pred_count >= len(gt_instances):
                 val = pred_count/len(gt_instances)
                 t = 'over'
@@ -287,7 +288,7 @@ def association_plot_2d(final_file, save_path, show=True, bins=30, draw_std=True
                 std.append(0)
             else:
                 std.append(statistics.stdev(r))
-
+          
     # Create dataframe for the plot
     data_tuples = list( zip( np.nan_to_num(ret_x), np.nan_to_num(ret_y), np.log(size+1)*50, std ) )
     df2 = pd.DataFrame(data_tuples, columns=['cable_length','association_counter', 'bin_counter', 'stdev_assoc'])
