@@ -1,3 +1,4 @@
+from bdb import set_trace
 import os
 import statistics
 import pandas as pd
@@ -31,6 +32,7 @@ def calculate_associations_from_map(assoc_file, gt_stats_file, assoc_stats_file,
            Wheter to be more verbose.
     """
     assoc_df = pd.read_csv(assoc_file, index_col=False)
+    out_dir = os.path.dirname(final_file)
 
     # Categorize associations and save again 
     if not 'association_type' in assoc_df:
@@ -39,7 +41,6 @@ def calculate_associations_from_map(assoc_file, gt_stats_file, assoc_stats_file,
         assoc_df['association_type'] = assoc_df.apply(lambda row: lab_association(row), axis=1)
         assoc_df = assoc_df.sort_values(by=['association_type'])
 
-        out_dir = os.path.dirname(final_file)
         assoc_df.to_csv(os.path.join(out_dir, assoc_file), index=False)
 
     # Creating association statistics to not do it everytime the user wants to print them
@@ -48,6 +49,7 @@ def calculate_associations_from_map(assoc_file, gt_stats_file, assoc_stats_file,
     final_df['counter'] = 0
     final_df['association_counter'] = 0
     final_df['association_type'] = 'over-segmentation'
+    
     _labels = np.array(final_df['label'].tolist())
     _counter = np.array(final_df['counter'].tolist())
     _association_counter = np.array(final_df['association_counter'].tolist(), dtype=np.float32)
@@ -62,6 +64,8 @@ def calculate_associations_from_map(assoc_file, gt_stats_file, assoc_stats_file,
     assoc_df = assoc_df.reset_index()
     for index, row in assoc_df.iterrows():
         gt_instances = row['gt']
+        gt_instances = gt_instances.replace('[',' ').replace(']',' ').replace(',','').split()
+        gt_instances = [int(x) for x in gt_instances]
         for gt_ins in gt_instances:
             if type(cell_statistics) is list:
                 result = final_df[final_df['label']==gt_ins]
@@ -109,6 +113,7 @@ def calculate_associations_from_map(assoc_file, gt_stats_file, assoc_stats_file,
     final_df['counter'] = _counter
     final_df['association_counter'] = _association_counter
     final_df['association_type'] = _association_type
+  
     if type(cell_statistics) is list:
         assoc_summary_df = pd.DataFrame.from_dict([ {k:[v] for k,v in a.items()} for a in cell_statistics] )
         assoc_summary_df = assoc_summary_df.set_axis(categories)
@@ -118,7 +123,7 @@ def calculate_associations_from_map(assoc_file, gt_stats_file, assoc_stats_file,
 
     # Save association final results and a summary to print it easily 
     final_df.to_csv(final_file, index=False)
-    assoc_summary_df.to_csv(os.path.join(out_dir, assoc_stats_file), index=False)
+    assoc_summary_df.to_csv(os.path.join(out_dir, assoc_stats_file))
 
 
 def lab_association(row):
@@ -152,7 +157,7 @@ def print_association_stats(stats_csv, show_categories=False):
     if not os.path.exists(stats_csv):
         raise ValueError('File {} not found. Did you call TIMISE.evaluate()?'.format(stats_csv))
 
-    df_out = pd.read_csv(stats_csv)
+    df_out = pd.read_csv(stats_csv, index_col=0)
     total_instances_all = 0
     df_len = df_out.shape[0]
 
@@ -398,7 +403,7 @@ def association_multiple_predictions(prediction_dirs, assoc_stats_file, show=Tru
     """
     dataframes = []
     for folder in prediction_dirs:
-        df_method = pd.read_csv(os.path.join(folder,assoc_stats_file))
+        df_method = pd.read_csv(os.path.join(folder,assoc_stats_file), index_col=0)
         df_method['method'] = os.path.basename(folder)
         dataframes.append(df_method)
 
