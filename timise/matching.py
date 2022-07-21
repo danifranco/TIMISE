@@ -280,10 +280,10 @@ def print_matching_stats(stats_csv, show_categories=False):
     df = pd.read_csv(stats_csv, index_col=False)
     df = df.round(3)
     
-    t = PrettyTable(df.columns.tolist()[1:])
+    t = PrettyTable(df.columns.tolist())
     df = df.reset_index()
     for index, row in df.iterrows():
-        t.add_row(row.tolist()[2:])
+        t.add_row(row.tolist()[1:])
     
     txt = "Matching metrics"
     txt = txt.center(t.get_string().find(os.linesep))
