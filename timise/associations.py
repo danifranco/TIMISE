@@ -62,10 +62,14 @@ def calculate_associations_from_map(assoc_file, gt_stats_file, assoc_stats_file,
         cell_statistics = {'one-to-one': 0, 'missing': 0, 'over-segmentation': 0, 'under-segmentation': 0, 'many-to-many': 0}
     assoc_df = assoc_df.reset_index()
     for index, row in assoc_df.iterrows():
-        gt_instances = row['gt'].replace('[',' ').replace(']',' ').replace(',','').split()
-        gt_instances = [int(x) for x in gt_instances]
-        pred_instances = row['predicted'].replace('[',' ').replace(']',' ').replace(',','').split()
-        pred_instances = [int(x) for x in pred_instances]
+        gt_instances = row['gt']
+        if not type(gt_instances) is list:
+            gt_instances = row['gt'].replace('[',' ').replace(']',' ').replace(',','').split()
+            gt_instances = [int(x) for x in gt_instances]
+        pred_instances = row['predicted']
+        if not type(pred_instances) is list:
+            pred_instances = row['predicted'].replace('[',' ').replace(']',' ').replace(',','').split()
+            pred_instances = [int(x) for x in pred_instances]
         for gt_ins in gt_instances:
             if type(cell_statistics) is list:
                 result = final_df[final_df['label']==gt_ins]
