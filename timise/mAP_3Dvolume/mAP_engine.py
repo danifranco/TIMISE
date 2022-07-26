@@ -11,7 +11,7 @@ import numpy as np
 from prettytable import PrettyTable
 
 from .vol3d_eval import VOL3Deval
-from .vol3d_util import seg_iou3d_sorted, readh5_handle, readh5, unique_chunk
+from .vol3d_util import seg_iou3d_sorted, readh5_handle, readh5, seg_bbox3d
 from ..utils import mAP_out_arrays_to_dataframes
 
 def load_data(args, slices, verbose=True):
@@ -47,22 +47,19 @@ def load_data(args, slices, verbose=True):
         if pred_score.shape[1] != 2:
             pred_score = pred_score.T
     else: # default
-        if verbose: print('\t\t Assign prediction score')
-        # assign same weight
-        """
-        ui = unique_chunk(pred_seg, slices, chunk_size = args.chunk_size, do_count = False)
-        ui = ui[ui>0]
-        pred_score = np.ones([len(ui),2],int)
-        pred_score[:,0] = ui
-        """
         # alternative: sort by size
-        ui,uc = unique_chunk(pred_seg, slices, chunk_size = args.chunk_size)
-        uc = uc[ui>0]
-        ui = ui[ui>0]
+        if not os.path.exists(os.path.join(args.aux_dir, "pred_ui.npy")):
+            print('\t\t Assigning prediction score')
+            ui, uc = seg_bbox3d(pred_seg, slices, uid=None, chunk_size = args.chunk_size, aux_dir=args.aux_dir, verbose=verbose)
+        else:
+            print('\t\t Loading prediction score from file')
+            ui = np.load(os.path.join(args.aux_dir, "pred_ui.npy"))
+            uc = np.load(os.path.join(args.aux_dir, "pred_uc.npy"))
+
         pred_score = np.ones([len(ui),2],int)
         pred_score[:,0] = ui
         pred_score[:,1] = uc
-
+        
     th_group, areaRng = np.zeros(0), np.zeros(0)
     group_gt, group_pred = None, None
     if args.group_gt != '': # exist gt group file
@@ -133,14 +130,7 @@ def mAP_computation(_args):
         v3dEval.summarize()
 
 def mAP_computation_fast(_args):
-    """
-    Convert the grount truth segmentation and the corresponding predictions to a coco dataset
-    to evaluate this dataset. The 3D volume is comparable to a video-type dataset and will therefore
-    be converted as a video instance segmentation
-    input:
-    output: coco_result_vid.json : This file will be written to your current directory and contains
-                                    the metadata about the dataset.
-    """
+    """Fast version of mAP_computation storing auxiliary arrays to not compute them later."""
     args = _args
 
     ## 1. Load data
@@ -165,6 +155,7 @@ def mAP_computation_fast(_args):
     slices = _return_slices()
 
     if args.verbose: print('\t1. Load data')
+    os.makedirs(args.aux_dir, exist_ok=True)
     gt_seg, pred_seg, pred_score, group_gt, group_pred, areaRng, slices, gt_bbox, pred_bbox = load_data(args, slices, args.verbose)
     
     # Hack the area range
@@ -182,7 +173,7 @@ def mAP_computation_fast(_args):
     if not os.path.exists(args.matching_out_file) or not os.path.exists(args.associations_file):
         mAP_out_arrays_to_dataframes(result_p, result_fn, args.matching_out_file, args.associations_file, verbose=True)
         
-    if args.verbose: print('\t-RUNTIME:\t{} [sec]\n'.format((stop_time-start_time)/1000) )
+    if args.verbose: print('\tRUNTIME:\t{} [sec]\n'.format((stop_time-start_time)/1000) )
  
     if not args.associations:
         ## 3. Evaluation script for 3D instance segmentation
