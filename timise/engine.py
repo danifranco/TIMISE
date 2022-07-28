@@ -188,7 +188,7 @@ class TIMISE:
 
             if not os.path.exists(final_error_file):
                 print("Calculating associations . . .")
-                calculate_associations_from_map(assoc_file, gt_stats_out_file, assoc_stats_file, final_error_file, self.verbose)
+                calculate_associations_from_map(assoc_file, gt_stats_out_file, assoc_stats_file, final_error_file)
             else:
                 print("Skipping association calculation (seems to be done here: {} )".format(final_error_file))
 

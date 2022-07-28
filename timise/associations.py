@@ -8,7 +8,7 @@ import plotly.express as px
 
 from .utils import str_list_to_ints_list
 
-def calculate_associations_from_map(assoc_file, gt_stats_file, assoc_stats_file, final_file, verbose=True):
+def calculate_associations_from_map(assoc_file, gt_stats_file, assoc_stats_file, final_file):
     """Calculate associations between instances. Based on the idea presented in `Assessment of deep learning
        algorithms for 3D instance segmentation of confocal image datasets
        <https://www.biorxiv.org/content/10.1101/2021.06.09.447748v1.full>`_.
@@ -26,9 +26,6 @@ def calculate_associations_from_map(assoc_file, gt_stats_file, assoc_stats_file,
 
        final_file : str
            Path where the final error file will be stored.
-
-       verbose : bool, optional
-           Wheter to be more verbose.
     """
     assoc_df = pd.read_csv(assoc_file, index_col=False)
     out_dir = os.path.dirname(final_file)

@@ -2,6 +2,7 @@ import sys
 import os
 import numpy as np
 import h5py
+from tqdm import tqdm
 
 ####
 # list of utility functions
@@ -142,9 +143,10 @@ def seg_bbox3d(seg, slices, uid=None, chunk_size=50, aux_dir=None, verbose=True)
     sz = seg.shape
     assert len(sz)==3
     if uid is None:
-        uid = unique_chunk(seg, slices, chunk_size, do_count=False)
+        uid, uic = unique_chunk(seg, slices, chunk_size)
+        uic = uic[uid>0]
         uid = uid[uid>0].astype(int)
-    
+        
     um = int(uid.max())
     pred_bbox = np.zeros((1+um,7),dtype=np.uint32)
     pred_bbox[:,0] = np.arange(pred_bbox.shape[0])
@@ -183,23 +185,12 @@ def seg_bbox3d(seg, slices, uid=None, chunk_size=50, aux_dir=None, verbose=True)
 
     # max + 1
     pred_bbox[:,2::2] += 1
-    pred_bbox2 = pred_bbox[uid]
-    
-    uc = np.zeros(pred_bbox2.shape[0], int)
-    # Calculate size based on the bounding box
-    for i in range(pred_bbox2.shape[0]):
-        uc[i] = (pred_bbox2[i][2] - pred_bbox2[i][1]) + \
-                (pred_bbox2[i][4] - pred_bbox2[i][3]) + \
-                (pred_bbox2[i][6] - pred_bbox2[i][5])
 
-    uc = uc[uid>0]
-    uid = uid[uid>0]
-
-    np.save(os.path.join(aux_dir, "pred_uc.npy"), uc)
+    np.save(os.path.join(aux_dir, "pred_uc.npy"), uic)
     np.save(os.path.join(aux_dir, "pred_ui.npy"), uid)
     np.save(os.path.join(aux_dir, "pred_bbox.npy"), pred_bbox)
     
-    return uid, uc
+    return uid, uic
 
 
 def seg_iou3d(pred, gt, slices, th_group=None, areaRng=[0,1e10], todo_id=None, chunk_size=100, crumb_size = -1, 
@@ -271,7 +262,7 @@ def seg_iou3d(pred, gt, slices, th_group=None, areaRng=[0,1e10], todo_id=None, c
     gt_matched_iou = np.zeros(1+gt_id.max(), float)
 
     if verbose: print('\t\tCompute iou matching')
-    for j,i in enumerate(todo_id):
+    for j,i in tqdm(enumerate(todo_id), total=len(todo_id)):
         # if not from_iou_matching:
         # Find intersection of pred and gt instance inside bbox, call intersection match_id
         bb = pred_bbox[j]
