@@ -183,14 +183,14 @@ def seg_bbox3d(seg, slices, uid=None, chunk_size=50, aux_dir=None, verbose=True)
 
     # max + 1
     pred_bbox[:,2::2] += 1
-    pred_bbox = pred_bbox[uid]
+    pred_bbox2 = pred_bbox[uid]
     
-    uc = np.zeros(pred_bbox.shape[0], int)
+    uc = np.zeros(pred_bbox2.shape[0], int)
     # Calculate size based on the bounding box
-    for i in range(pred_bbox.shape[0]):
-        uc[i] = (pred_bbox[i][2] - pred_bbox[i][1]) + \
-                (pred_bbox[i][4] - pred_bbox[i][3]) + \
-                (pred_bbox[i][6] - pred_bbox[i][5])
+    for i in range(pred_bbox2.shape[0]):
+        uc[i] = (pred_bbox2[i][2] - pred_bbox2[i][1]) + \
+                (pred_bbox2[i][4] - pred_bbox2[i][3]) + \
+                (pred_bbox2[i][6] - pred_bbox2[i][5])
 
     uc = uc[uid>0]
     uid = uid[uid>0]
@@ -254,7 +254,7 @@ def seg_iou3d(pred, gt, slices, th_group=None, areaRng=[0,1e10], todo_id=None, c
     if pred_bbox is None:
         print('\t\tLoading bounding boxes from file')
         pred_bbox = np.load(os.path.join(aux_dir, "pred_bbox.npy"))
-        pred_bbox = pred_bbox[todo_id-1]
+        pred_bbox = pred_bbox[todo_id]
         pred_bbox = pred_bbox[:,1:]
     
     if th_group is not None: # regular area range
@@ -332,7 +332,7 @@ def seg_iou3d_sorted(pred, gt, score, slices, th_group=None, areaRng = [0,1e10],
     pred_id = np.unique(score[:,0])
     pred_id = pred_id[pred_id>0]
     pred_id_sorted = np.argsort(-relabel[pred_id])
-
+    
     # Save prediction info
     np.save(os.path.join(aux_dir, "pred_labels.npy"), pred_id[pred_id_sorted])
 

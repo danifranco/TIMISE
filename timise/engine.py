@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 from skimage.io import imread
 
-from .mAP_3Dvolume.mAP_engine import print_mAP_stats, mAP_computation_fast, mAP_computation
+from .mAP_3Dvolume.mAP_engine import print_mAP_stats, mAP_computation_fast
 from .associations import (calculate_associations_from_map, print_association_stats, association_plot_2d, association_plot_3d,
                            association_multiple_predictions)
 from .matching import calculate_matching_metrics, print_matching_stats
