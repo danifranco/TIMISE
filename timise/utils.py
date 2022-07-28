@@ -73,6 +73,7 @@ def mAP_out_arrays_to_dataframes(pred_arr, missing_arr, matching_out_file, out_a
     gt_to_pred = {}
     gt_keys = {}
     pred_to_gt = {}
+    background = {}
     for i in range(pred_arr.shape[0]):
         row = pred_arr[i]
         pred_id = int(row[0])
@@ -93,6 +94,9 @@ def mAP_out_arrays_to_dataframes(pred_arr, missing_arr, matching_out_file, out_a
             else:
                 gt_to_pred[gt_id] = [pred_id]
             pred_to_gt[pred_id] = [gt_id]
+        # 'background' 
+        else:
+            background[pred_id] = []
 
     # Save matching stats
     data_tuples = list(zip(gt_ids,gt_sizes,pred_ids,pred_sizes,ious))
@@ -141,7 +145,7 @@ def mAP_out_arrays_to_dataframes(pred_arr, missing_arr, matching_out_file, out_a
             gt_to_pred[new_dic_key] = gt_to_pred.pop(old_key)
 
     # Save associations
-    data_tuples = list( zip( gt_to_pred.values(), gt_to_pred.keys() ) )
+    data_tuples = list( zip( list(gt_to_pred.values())+list(background.keys()),list(gt_to_pred.keys())+list(background.values()) ) )
     df_assoc = pd.DataFrame(data_tuples, columns=['predicted', 'gt'])
     df_assoc.to_csv(out_assoc_file, index=False)
     if verbose: print("Association dataframe stored in {} . . .".format(out_assoc_file))
@@ -206,6 +210,8 @@ def create_map_groups_from_associations(map_aux_dir, gt_stats_file, association_
     # Capture prediction instances categories looking the instance
     # they are associated with in the gt
     for i, pred_ins in enumerate(pred_instances):
+        # if pred_ins == 5:
+        #     import pdb; pdb.set_trace()
         query = []
         for l in df_assoc['predicted']:
             if pred_ins in l:
@@ -214,12 +220,13 @@ def create_map_groups_from_associations(map_aux_dir, gt_stats_file, association_
                 query.append(False)
         line = df_assoc[query]
 
-        if line.size == 0:
-            # For the FP leave them as the first category, e.g. small
-            pred_category = cat_codes[cat[0]]
+        gt_instances = line['gt'].iloc[0]
+        pred_category = 0
+
+        # For the FP leave them as the first category, e.g. small
+        if gt_instances == [-1]:
+            pred_category = cat_codes[cat[0]]        
         else:
-            gt_instances = line['gt'].iloc[0]
-            pred_category = 0
             for gt_ins in gt_instances:
                 c = df_gt[df_gt['label'] == gt_ins]['category'].iloc[0]
                 if cat_codes[c] > pred_category:

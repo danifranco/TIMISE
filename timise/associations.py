@@ -32,7 +32,7 @@ def calculate_associations_from_map(assoc_file, gt_stats_file, assoc_stats_file,
     """
     assoc_df = pd.read_csv(assoc_file, index_col=False)
     out_dir = os.path.dirname(final_file)
-
+    
     # Categorize associations and save again 
     if not 'association_type' in assoc_df:
         assoc_df['predicted'] = str_list_to_ints_list(assoc_df, 'predicted', void_to_number=False)
@@ -57,9 +57,10 @@ def calculate_associations_from_map(assoc_file, gt_stats_file, assoc_stats_file,
         cell_statistics = []
         categories = pd.unique(final_df['category']).tolist()
         for i in range(len(categories)):
-            cell_statistics.append({'one-to-one': 0, 'missing': 0, 'over-segmentation': 0, 'under-segmentation': 0, 'many-to-many': 0})
+            cell_statistics.append({'one-to-one': 0, 'missing': 0, 'over-segmentation': 0, 'under-segmentation': 0, 'many-to-many': 0, 'background': 0})
     else:
-        cell_statistics = {'one-to-one': 0, 'missing': 0, 'over-segmentation': 0, 'under-segmentation': 0, 'many-to-many': 0}
+        cell_statistics = {'one-to-one': 0, 'missing': 0, 'over-segmentation': 0, 'under-segmentation': 0, 'many-to-many': 0, 'background': 0}
+
     assoc_df = assoc_df.reset_index()
     for index, row in assoc_df.iterrows():
         gt_instances = row['gt']
@@ -70,13 +71,22 @@ def calculate_associations_from_map(assoc_file, gt_stats_file, assoc_stats_file,
         if not type(pred_instances) is list:
             pred_instances = row['predicted'].replace('[',' ').replace(']',' ').replace(',','').split()
             pred_instances = [int(x) for x in pred_instances]
-        for gt_ins in gt_instances:
+            
+        if gt_instances == []:
             if type(cell_statistics) is list:
-                result = final_df[final_df['label']==gt_ins]
-                tag = result['category'].iloc[0]
-                cell_statistics[categories.index(tag)][row['association_type']] += 1
+                # Add FPs in the first category 
+                cell_statistics[0]['background'] += 1
             else:
-                cell_statistics[row['association_type']] += 1
+                cell_statistics['background'] += 1
+        else:
+            for gt_ins in gt_instances:
+                if type(cell_statistics) is list:
+                    result = final_df[final_df['label']==gt_ins]
+                    tag = result['category'].iloc[0]
+                    cell_statistics[categories.index(tag)][row['association_type']] += 1
+                else:
+                    cell_statistics[row['association_type']] += 1
+
         if row['association_type'] == 'over-segmentation':
             itemindex = np.where(_labels==gt_instances)
             _counter[itemindex] += 1
@@ -109,6 +119,9 @@ def calculate_associations_from_map(assoc_file, gt_stats_file, assoc_stats_file,
             itemindex = np.where(_labels==gt_instances)
             _counter[itemindex] += 1
             _association_type[itemindex] = 'missing'
+        elif row['association_type'] == 'background':
+            itemindex = np.where(_labels==gt_instances)
+            _association_type[itemindex] = 'background'
         else:
             itemindex = np.where(_labels==gt_instances)
             _counter[itemindex] += 1
@@ -131,13 +144,14 @@ def calculate_associations_from_map(assoc_file, gt_stats_file, assoc_stats_file,
 
 
 def lab_association(row):
-    """Determines the association type."""
-    
+    """Determines the association type."""   
     if len(row['predicted']) == 0:
         return 'missing'
     elif len(row['predicted']) == 1:
         if len(row['gt']) == 1:
             return 'one-to-one'
+        elif len(row['gt']) == 0:
+            return 'background'
         else:
             return 'under-segmentation'
     else:
@@ -166,7 +180,7 @@ def print_association_stats(stats_csv, show_categories=False):
     df_len = df_out.shape[0]
 
     max_str_size = 0
-    total_assoc = [0, 0, 0, 0, 0]
+    total_assoc = [0, 0, 0, 0, 0, 0]
     for i in range(df_len):
         total_instances = 0
         cell_statistics = {}
@@ -190,9 +204,13 @@ def print_association_stats(stats_csv, show_categories=False):
             cell_statistics['many-to-many'] = int(df_out['many-to-many'][i][1:][:-1])
         else:
             cell_statistics['many-to-many'] = df_out['many-to-many'][i]
+        if isinstance(df_out['background'][i], str):
+            cell_statistics['background'] = int(df_out['background'][i][1:][:-1])
+        else:
+            cell_statistics['background'] = df_out['background'][i]
         total_instances += cell_statistics['one-to-one']+cell_statistics['missing'] \
                            +cell_statistics['over-segmentation']+cell_statistics['under-segmentation'] \
-                           +cell_statistics['many-to-many']
+                           +cell_statistics['many-to-many']+cell_statistics['background']
         total_instances_all += total_instances
         if i == 0:
             extra_column = ['category',] if df_len > 1 else []
@@ -205,6 +223,7 @@ def print_association_stats(stats_csv, show_categories=False):
         total_assoc[2] += cell_statistics['over-segmentation']
         total_assoc[3] += cell_statistics['under-segmentation']
         total_assoc[4] += cell_statistics['many-to-many']
+        total_assoc[5] += cell_statistics['background']
 
         if max_str_size < len(str(df_out.iloc[i].name)):
             max_str_size = len(str(df_out.iloc[i].name))+3
@@ -425,6 +444,7 @@ def association_multiple_predictions(prediction_dirs, assoc_stats_file, show=Tru
     df["over-segmentation"] = df["over-segmentation"].str[1:-1].astype(int)
     df["under-segmentation"] = df["under-segmentation"].str[1:-1].astype(int)
     df["many-to-many"] = df["many-to-many"].str[1:-1].astype(int)
+    df["background"] = df["background"].str[1:-1].astype(int)
 
     if len(order)>1:
         df['position'] = 0
@@ -442,7 +462,7 @@ def association_multiple_predictions(prediction_dirs, assoc_stats_file, show=Tru
         # Create a plot for each type of category
         for i in range(ncategories):
             fig = px.bar(df.loc[categories_names[i]], x="method", y=["one-to-one", "missing", "over-segmentation",
-                         "under-segmentation", "many-to-many"], title="Association performance ("+categories_names[i]+")",
+                         "under-segmentation", "many-to-many", "background"], title="Association performance ("+categories_names[i]+")",
                          color_discrete_sequence=colors, labels={'method':'Methods', 'value':'Number of instances'},
                          width=shape[0], height=shape[1])
             fig.update_layout(legend=dict(orientation="h", yanchor="bottom", y=1.005, xanchor="right", x=0.835, title_text='',
@@ -456,7 +476,7 @@ def association_multiple_predictions(prediction_dirs, assoc_stats_file, show=Tru
         df = df.groupby('method', sort=False).sum()
         df.reset_index(inplace=True)
         fig = px.bar(df, x="method", y=["one-to-one", "missing", "over-segmentation",
-                     "under-segmentation", "many-to-many"], title="Association performance comparison",
+                     "under-segmentation", "many-to-many", "background"], title="Association performance comparison",
                      color_discrete_sequence=colors, labels={'method':'Methods', 'value':'Number of instances'},
                      width=shape[0], height=shape[1])
         fig.update_layout(legend=dict(orientation="h", yanchor="bottom", y=1.005, xanchor="right", x=0.835, title_text='',
