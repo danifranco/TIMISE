@@ -245,7 +245,8 @@ class TIMISE:
                 print_mAP_stats(os.path.join(f, self.map_stats_file))
                 print('')
             if 'associations' in self.metrics:
-                print_association_stats(os.path.join(f, self.association_stats_file), self.show_categories)
+                print_association_stats(os.path.join(f, self.association_stats_file), 
+                                        os.path.join(f,self.map_aux_dir), self.show_categories)
                 print('')
             if 'matching' in self.metrics:
                 print_matching_stats(os.path.join(f, self.matching_file), self.show_categories)

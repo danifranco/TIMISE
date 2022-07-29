@@ -158,7 +158,7 @@ def lab_association(row):
             return 'many-to-many'
 
 
-def print_association_stats(stats_csv, show_categories=False):
+def print_association_stats(stats_csv, map_aux_dir, show_categories=False):
     """Print association statistics.
 
        Parameters
@@ -172,15 +172,19 @@ def print_association_stats(stats_csv, show_categories=False):
     if not os.path.exists(stats_csv):
         raise ValueError('File {} not found. Did you call TIMISE.evaluate()?'.format(stats_csv))
 
+    pred_id = np.load(os.path.join(map_aux_dir, "pred_ui.npy"))
+    num_pred_instances = len(pred_id)
+
     df_out = pd.read_csv(stats_csv, index_col=0)
     total_instances_all = 0
     df_len = df_out.shape[0]
 
-    max_str_size = 0
-    total_assoc = [0, 0, 0, 0, 0, 0]
+    total_assoc = [0, 0, 0, 0, 0]
+    pred_total_background = [0]
     for i in range(df_len):
         total_instances = 0
         cell_statistics = {}
+        pred_cell_statistics = {}
         if isinstance(df_out['one-to-one'][i], str):
             cell_statistics['one-to-one'] = int(df_out['one-to-one'][i][1:][:-1])
         else:
@@ -202,46 +206,69 @@ def print_association_stats(stats_csv, show_categories=False):
         else:
             cell_statistics['many-to-many'] = df_out['many-to-many'][i]
         if isinstance(df_out['background'][i], str):
-            cell_statistics['background'] = int(df_out['background'][i][1:][:-1])
+            pred_cell_statistics['background'] = int(df_out['background'][i][1:][:-1])
         else:
-            cell_statistics['background'] = df_out['background'][i]
+            pred_cell_statistics['background'] = df_out['background'][i]
+        if i != 0: pred_cell_statistics['background'] = '-'
+
         total_instances += cell_statistics['one-to-one']+cell_statistics['missing'] \
                            +cell_statistics['over-segmentation']+cell_statistics['under-segmentation'] \
-                           +cell_statistics['many-to-many']+cell_statistics['background']
+                           +cell_statistics['many-to-many']
         total_instances_all += total_instances
         if i == 0:
             extra_column = ['category',] if df_len > 1 else []
-            t = PrettyTable(extra_column+[' ',]+list(cell_statistics.keys())+['Total'])
+            t = PrettyTable(extra_column+['',]+list(cell_statistics.keys())+['Total']+[' ',]+['background'])
         extra_column = [df_out.iloc[i].name,] if df_len > 1 else []
-        t.add_row(extra_column+['Count',]+list(cell_statistics.values())+[total_instances])
+        t.add_row(extra_column+['Count',]+list(cell_statistics.values())+[total_instances]+['    ',]+[pred_cell_statistics['background']])
 
         total_assoc[0] += cell_statistics['one-to-one']
         total_assoc[1] += cell_statistics['missing']
         total_assoc[2] += cell_statistics['over-segmentation']
         total_assoc[3] += cell_statistics['under-segmentation']
         total_assoc[4] += cell_statistics['many-to-many']
-        total_assoc[5] += cell_statistics['background']
-
-        if max_str_size < len(str(df_out.iloc[i].name)):
-            max_str_size = len(str(df_out.iloc[i].name))+3
+        if i == 0: pred_total_background[0] += pred_cell_statistics['background']
 
         # Percentages
         cell_statistics = {state: np.around((val/total_instances)*100, 2) for state, val in cell_statistics.items()}
         extra_column = [' ',] if df_len > 1 else []
-        t.add_row(extra_column+['%',]+list(cell_statistics.values())+[' '])
+        t.add_row(extra_column+['%',]+list(cell_statistics.values())+[' ',' ', ' '])
 
     if df_len > 1 and show_categories:
-        t.add_row(['',]*(3+len(cell_statistics.values()) ))
-        t.add_row(['TOTAL','Count',]+total_assoc+[total_instances_all,])
-        t.add_row([' ','%',]+[np.around((val/total_instances_all)*100, 2) for val in total_assoc]+[total_instances_all,])
+        t.add_row(['',]*(3+len(cell_statistics.values()) )+[' ',' '])
+        t.add_row(['TOTAL','Count',]+total_assoc+[total_instances_all,]+[' ',]+pred_total_background)
+        per_back_instances = np.around((pred_total_background[0]/num_pred_instances)*100, 2)
+        t.add_row([' ','%',]+[np.around((val/total_instances_all)*100, 2) for val in total_assoc]+['100',' ',per_back_instances])
     else:
         t = PrettyTable([' ',]+list(cell_statistics.keys())+['Total'])
         t.add_row(['Count',]+total_assoc+[total_instances_all,])
         t.add_row(['%',]+[np.around((val/total_instances_all)*100, 2) for val in total_assoc]+[total_instances_all,])
 
-    txt = "Associations"
-    txt = txt.center(t.get_string().find(os.linesep))
-    print(txt)
+    # Header positioning
+    txt = "Ground truth associations"
+    txt2 = "Prediction"
+    txt3 = "false positives"
+
+    # Center txt 
+    line = t.get_string().split(os.linesep)[0].split('+')[:-3]
+    c = 0
+    for v in line:
+        c += len(v)   
+    c += len(line)
+    txt = txt.center(c)
+
+    # Center txt2 and txt3
+    line = t.get_string().split(os.linesep)[0].split('+')[-3:]
+    c = 0
+    for i in range(1,len(line)):
+        c += len(v)   
+    c += len(line)
+    txt2 = txt2.center(c)
+    txt3 = txt3.center(c)
+    txt = txt + ' '*(len(line[0])-2)
+
+    # Print headers
+    print(' '*len(txt)+ txt2)
+    print(txt+txt3)
     print(t)
 
 
