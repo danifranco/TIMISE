@@ -1,7 +1,7 @@
 # A **T**oolbox for **I**dentifying **M**itochondria **I**nstance **S**egmentation **E**rrors
 
 The toolbox provides a set of size and morphological measures from the prediction and ground truth, including volume,
-skeleton length and cable length; and (2) a set of evaluation metrics, including the AP used from MitoEM, association
+skeleton length and cable length; and a set of evaluation metrics, including the AP used from MitoEM, association
 and matching metrics. Thus, you could analize the errors between these two volumes:
 
 <table>
@@ -10,8 +10,8 @@ and matching metrics. Thus, you could analize the errors between these two volum
      <td>Prediction</td>
   </tr>
   <tr>
-    <td><img src="https://github.com/danifranco/TIMISE/tree/main/examples/img/toy_gt.gif" width=280></td>
-    <td><img src="https://github.com/danifranco/TIMISE/tree/main/examples/img/toy_pred.gif" width=280 ></td>
+    <td><img src="https://github.com/danifranco/TIMISE/blob/main/examples/img/toy_gt.gif" width=280></td>
+    <td><img src="https://github.com/danifranco/TIMISE/blob/main/examples/img/toy_pred.gif" width=280 ></td>
   </tr>
 </table>
 
