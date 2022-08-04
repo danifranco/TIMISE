@@ -10,8 +10,8 @@ and matching metrics. Thus, you could analize the errors between these two volum
      <td>Prediction</td>
   </tr>
   <tr>
-    <td><img src="https://github.com/danifranco/TIMISE/blob/main/examples/img/toy_gt.gif" width=280></td>
-    <td><img src="https://github.com/danifranco/TIMISE/blob/main/examples/img/toy_pred.gif" width=280 ></td>
+    <td><img src="https://github.com/danifranco/TIMISE/blob/main/examples/img/toy_gt.gif" width=200></td>
+    <td><img src="https://github.com/danifranco/TIMISE/blob/main/examples/img/toy_pred.gif" width=200 ></td>
   </tr>
 </table>
 
