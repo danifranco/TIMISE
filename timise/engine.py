@@ -225,9 +225,9 @@ class TIMISE:
             if 'matching' in self.metrics:
                 if not os.path.exists(matching_file):
                     print("Calculating matching metrics . . .")
-                    calculate_matching_metrics(self.gt_file, pred_file, matching_file, report_matches=False,
-                        precomputed_matching_file=precomputed_matching_file, gt_stats_file=gt_stats_out_file,
-                        pred_stats_file=stats_out_file, thresh=self.matching_stats_ths)
+                    calculate_matching_metrics(matching_file, self.split_categories, 
+                        precomputed_matching_file=precomputed_matching_file, gt_stats_file=gt_stats_out_file,  
+                        thresh=self.matching_stats_ths, report_matches=False)
                 else:
                     print("Skipping matching metrics calculation (seems to be done here: {} )".format(matching_file))
 

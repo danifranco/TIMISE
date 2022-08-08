@@ -262,7 +262,7 @@ def seg_iou3d(pred, gt, slices, th_group=None, areaRng=[0,1e10], todo_id=None, c
     gt_matched_iou = np.zeros(1+gt_id.max(), float)
 
     if verbose: print('\t\tCompute iou matching')
-    for j,i in tqdm(enumerate(todo_id), total=len(todo_id)):
+    for j,i in enumerate(todo_id):
         # if not from_iou_matching:
         # Find intersection of pred and gt instance inside bbox, call intersection match_id
         bb = pred_bbox[j]
