@@ -148,7 +148,7 @@ class TIMISE:
             self.pred_out_dirs.append(pred_out_dir)
             self.method_names.append(os.path.basename(os.path.normpath(id_)))
             map_out_file = os.path.join(pred_out_dir, self.map_out_filename)
-            pred_map_th_aux_file = os.path.join(pred_out_dir, "pred_"+self.grouping_file)
+            pred_grouping_file = os.path.join(pred_out_dir, "pred_"+self.grouping_file)
             map_aux_dir = os.path.join(pred_out_dir, self.map_aux_dir)
             precomputed_matching_file=os.path.join(pred_out_dir, self.precomputed_matching_file)
             matching_file = os.path.join(pred_out_dir, self.matching_file)
@@ -192,32 +192,30 @@ class TIMISE:
             else:
                 print("Skipping association calculation (seems to be done here: {} )".format(final_error_file))
 
-            
+            # Creating the mAP auxiliary file
+            if not self.split_categories is None and self.split_property == 'cable_length':
+                print("Creating grouping aux file . . .")
+                if not os.path.exists(pred_grouping_file):
+                    create_map_groups_from_associations(map_aux_dir, gt_stats_out_file, assoc_file, pred_grouping_file,
+                        cat=self.split_categories, verbose=verbose)   
+            else:
+                pred_grouping_file = ''
+
             #######
             # mAP #
             #######
             if 'map' in self.metrics:
-                # Creating the mAP auxiliary file
-                if not self.split_categories is None and self.split_property == 'cable_length':
-                    print("Creating grouping aux file for mAP calculation . . .")
-                    if not os.path.exists(pred_map_th_aux_file):
-                        create_map_groups_from_associations(map_aux_dir, gt_stats_out_file, assoc_file, pred_map_th_aux_file,
-                            cat=self.split_categories, verbose=verbose)   
-                else:
-                    pred_map_th_aux_file = ''
-
                 if not os.path.exists(map_out_file):
                     print("Run mAP code . . .")
                     args = Namespace(gt_seg=self.gt_file, predict_seg=pred_file, gt_bbox='', predict_score='', predict_bbox='',
                                 predict_heatmap_channel=-1, threshold=self.map_th, threshold_crumb=0,
                                 chunk_size=self.map_chunk_size, output_name=os.path.join(pred_out_dir, "map"),
-                                group_gt=gt_map_th_aux_file, group_pred=pred_map_th_aux_file, do_txt=1, do_eval=1, 
+                                group_gt=gt_map_th_aux_file, group_pred=pred_grouping_file, do_txt=1, do_eval=1, 
                                 slices=-1, verbose=verbose, matching_out_file=precomputed_matching_file, 
                                 associations_file=assoc_file, aux_dir=map_aux_dir, associations=False)
                     mAP_computation_fast(args)  
                 else:
                     print("Skipping mAP calculation (seems to be done here: {} )".format(map_out_file))
-
 
             ####################
             # Matching metrics #
@@ -225,7 +223,7 @@ class TIMISE:
             if 'matching' in self.metrics:
                 if not os.path.exists(matching_file):
                     print("Calculating matching metrics . . .")
-                    calculate_matching_metrics(matching_file, self.split_categories, 
+                    calculate_matching_metrics(matching_file, pred_grouping_file, self.split_categories, 
                         precomputed_matching_file=precomputed_matching_file, gt_stats_file=gt_stats_out_file,  
                         thresh=self.matching_stats_ths, report_matches=False)
                 else:

@@ -75,7 +75,7 @@ def accuracy(tp,fp,fn):
 def f1(tp,fp,fn):
     return (2*tp)/(2*tp+fp+fn) if tp > 0 else 0
 
-def calculate_matching_metrics(out_file, categories=None, precomputed_matching_file=None, gt_stats_file=None, 
+def calculate_matching_metrics(out_file, pred_group_file, categories=None, precomputed_matching_file=None, gt_stats_file=None, 
                                thresh=0.5, report_matches=False):
     """Calculate detection/instance segmentation metrics between ground truth and predicted label images.
        Currently, the following metrics are implemented:
@@ -114,14 +114,27 @@ def calculate_matching_metrics(out_file, categories=None, precomputed_matching_f
     df = df.sort_values(by=['gt_id'], ascending=True)
 
     df_gt = pd.read_csv(gt_stats_file, index_col=False)
-    df_gt = df_gt.sort_values(by=['label'], ascending=True)
+    #df_gt = df_gt.sort_values(by=['label'], ascending=True)
+
+    df_pred = pd.read_csv(pred_group_file, names=['pred_id', 'category'], index_col=False, sep=' ')
 
     final_values = []
-    for cat in categories:
-        l_true = df_gt[df_gt['category'] == cat]['label'].tolist()
-        l_pred = df[df['gt_id'].isin(l_true)]['pred_id'].tolist()
-        df_aux = df[df['gt_id'].isin(l_true)]
+    _categories = categories.copy()
+    _categories.append('total')
+    for k, cat in enumerate(_categories):
+        if cat != 'total':
+            l_true = df_gt[df_gt['category'] == cat]['label'].tolist()
+            l_pred = df[df['gt_id'].isin(l_true)]['pred_id'].tolist()
+            df_aux = df[df['gt_id'].isin(l_true)]
 
+            # Take the FPs
+            df_pred_aux = df_pred[df_pred['category'] == k]['pred_id']
+            l_pred += df_pred_aux[~(df_pred_aux.isin(l_pred))].tolist()
+        else:
+            l_true = df_gt['label'].tolist()
+            l_pred = df_pred['pred_id'].tolist()
+            df_aux = df
+        
         # Relabel instances and map them to run it faster
         gt_mapping = {}
         c = 1
