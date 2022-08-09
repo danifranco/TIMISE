@@ -138,7 +138,7 @@ def unique_chunks_bbox(seg1, seg2, seg2_val, bbox, chunk_size = 50, do_count = T
         return ui, seg2_count
 
 # 3. instance seg -> bbox
-def seg_bbox3d(seg, slices, uid=None, chunk_size=50, aux_dir=None, verbose=True):
+def seg_bbox3d(seg, slices, uid=None, chunk_size=50, aux_dir=None, log_prefix_str=''):
     """returns bounding box of segments"""
     sz = seg.shape
     assert len(sz)==3
@@ -156,7 +156,7 @@ def seg_bbox3d(seg, slices, uid=None, chunk_size=50, aux_dir=None, verbose=True)
     num_chunk = (num_z + chunk_size -1 ) // chunk_size
     
     for chunk_id in range(num_chunk):
-        if verbose: print('\t\t chunk %d' % chunk_id)
+        print(log_prefix_str+'\t\tchunk %d' % chunk_id)
         z0 = chunk_id * chunk_size + slices[0]
         # compute max index, modulo takes care of slices[1] = -1
         max_idx = min([z0 + chunk_size, slices[1]])
@@ -194,11 +194,11 @@ def seg_bbox3d(seg, slices, uid=None, chunk_size=50, aux_dir=None, verbose=True)
 
 
 def seg_iou3d(pred, gt, slices, th_group=None, areaRng=[0,1e10], todo_id=None, chunk_size=100, crumb_size = -1, 
-              pred_bbox=None, gt_bbox=None, aux_dir="aux", verbose=True):
+              pred_bbox=None, gt_bbox=None, aux_dir="aux", log_prefix_str=''):
     # returns the matching pairs of ground truth IDs and prediction IDs, as well as the IoU of each pair.
     # (pred,gt)
     if pred_bbox is None:
-        print("\t\t Loading predict-score from file")
+        print(log_prefix_str+"\t\tLoading predict-score from file")
         pred_id = np.load(os.path.join(aux_dir, "pred_ui.npy"))
         pred_sz = np.load(os.path.join(aux_dir, "pred_uc.npy"))
     else:
@@ -218,14 +218,14 @@ def seg_iou3d(pred, gt, slices, th_group=None, areaRng=[0,1e10], todo_id=None, c
         # input gt_bbox has to have volume, o/w recompute it
         # some gt can be huge and we need to do the chunk anyway
         if not os.path.exists(os.path.join(aux_dir, "gt_id.npy")):
-            print("\t\t Calculating gt-score")
+            print(log_prefix_str+"\t\tCalculating gt-score")
             gt_id, gt_sz = unique_chunk(gt, slices, chunk_size)
             gt_sz = gt_sz[gt_id > 0]
             gt_id = gt_id[gt_id > 0]
             np.save(os.path.join(aux_dir, "gt_sz.npy"), gt_sz)
             np.save(os.path.join(aux_dir, "gt_id.npy"), gt_id)
         else:
-            print("\t\t Loading gt-score from file")
+            print(log_prefix_str+"\t\tLoading gt-score from file")
             gt_sz = np.load(os.path.join(aux_dir, "gt_sz.npy"))
             gt_id = np.load(os.path.join(aux_dir, "gt_id.npy"))
     else:
@@ -243,7 +243,7 @@ def seg_iou3d(pred, gt, slices, th_group=None, areaRng=[0,1e10], todo_id=None, c
         todo_sz = predict_sz_rl[todo_id]
 
     if pred_bbox is None:
-        print('\t\tLoading bounding boxes from file')
+        print(log_prefix_str+'\t\tLoading bounding boxes from file')
         pred_bbox = np.load(os.path.join(aux_dir, "pred_bbox.npy"))
         pred_bbox = pred_bbox[todo_id]
         pred_bbox = pred_bbox[:,1:]
@@ -261,7 +261,7 @@ def seg_iou3d(pred, gt, slices, th_group=None, areaRng=[0,1e10], todo_id=None, c
     gt_matched_id = np.zeros(1+gt_id.max(), int)
     gt_matched_iou = np.zeros(1+gt_id.max(), float)
 
-    if verbose: print('\t\tCompute iou matching')
+    print(log_prefix_str+'\t\tCompute iou matching')
     for j,i in enumerate(todo_id):
         # if not from_iou_matching:
         # Find intersection of pred and gt instance inside bbox, call intersection match_id
@@ -312,7 +312,7 @@ def seg_iou3d(pred, gt, slices, th_group=None, areaRng=[0,1e10], todo_id=None, c
     return result_p, result_fn
 
 def seg_iou3d_sorted(pred, gt, score, slices, th_group=None, areaRng = [0,1e10], chunk_size = 250, crumb_size = -1, 
-                     pred_bbox=None, gt_bbox=None, aux_dir="aux", verbose=True):
+                     pred_bbox=None, gt_bbox=None, aux_dir="aux", log_prefix_str=''):
     # pred_bbox: precomputed if needed
     # pred_score: Nx2 [id, score]
     # 1. sort prediction by confidence score
@@ -328,7 +328,7 @@ def seg_iou3d_sorted(pred, gt, score, slices, th_group=None, areaRng = [0,1e10],
     np.save(os.path.join(aux_dir, "pred_labels.npy"), pred_id[pred_id_sorted])
 
     result_p, result_fn = seg_iou3d(pred, gt, slices, th_group, areaRng, pred_id[pred_id_sorted], chunk_size, 
-        crumb_size, pred_bbox, gt_bbox, aux_dir, verbose=verbose)
+        crumb_size, pred_bbox, gt_bbox, aux_dir, log_prefix_str=log_prefix_str)
     
     # format: pid,pc,p_score, gid,gc,iou
     pred_score_sorted = relabel[pred_id_sorted].reshape(-1,1)

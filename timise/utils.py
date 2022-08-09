@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 from skimage.io import imread, imsave
 
-def check_files(directory, verbose=False):
+def check_files(directory):
     files = sorted(next(os.walk(directory))[2])
     if len(files) == 0:
         raise ValueError("No files found in {}".format(directory))
@@ -67,7 +67,7 @@ def cable_length(vertices, edges, res = [1,1,1]):
     dist = np.sqrt(dist)
     return np.sum(dist)
 
-def mAP_out_arrays_to_dataframes(pred_arr, missing_arr, matching_out_file, out_assoc_file, verbose=True):
+def mAP_out_arrays_to_dataframes(pred_arr, missing_arr, matching_out_file, out_assoc_file, log_prefix_str=''):
     gt_ids, gt_sizes, pred_ids, pred_sizes, ious = [], [], [], [], []
 
     gt_to_pred = {}
@@ -105,7 +105,7 @@ def mAP_out_arrays_to_dataframes(pred_arr, missing_arr, matching_out_file, out_a
     df.drop(indexNames, inplace=True)
     df = df.sort_values(by=['gt_id','iou'])
     df.to_csv(matching_out_file, index=False)
-    if verbose: print("Matching dataframe stored in {} . . .".format(matching_out_file))
+    print(log_prefix_str+"\tMatching dataframe stored in {} . . .".format(matching_out_file))
 
     for i in range(missing_arr.shape[0]):
         row = missing_arr[i]
@@ -148,14 +148,14 @@ def mAP_out_arrays_to_dataframes(pred_arr, missing_arr, matching_out_file, out_a
     data_tuples = list( zip( list(gt_to_pred.values())+list(background.keys()),list(gt_to_pred.keys())+list(background.values()) ) )
     df_assoc = pd.DataFrame(data_tuples, columns=['predicted', 'gt'])
     df_assoc.to_csv(out_assoc_file, index=False)
-    if verbose: print("Association dataframe stored in {} . . .".format(out_assoc_file))
+    print(log_prefix_str+"\tAssociation dataframe stored in {} . . .".format(out_assoc_file))
 
 
 class Namespace:
     def __init__(self, **kwargs):
         self.__dict__.update(kwargs)
 
-def create_map_aux_file_from_stats(stats_file, out_file, cat=['small','medium','large']):
+def create_map_aux_file_from_stats(stats_file, out_file, cat=['small','medium','large'], log_prefix_str=''):
     """Create an auxiliary file for mAP calculation"""
     aa = open(stats_file)
     bb = aa.readlines()
@@ -171,6 +171,7 @@ def create_map_aux_file_from_stats(stats_file, out_file, cat=['small','medium','
         result[i-1, 0] = int(line[0])
         result[i-1, 1] = cat_codes[line[-1]]
     aa.close()
+    print(log_prefix_str+"\tSaving grouping in {}".format(out_file))
     np.savetxt(out_file, result, '%d')
 
 def str_list_to_ints_list(df, col_name, void_to_number=True):
@@ -190,7 +191,7 @@ def str_list_to_ints_list(df, col_name, void_to_number=True):
     return new_list
 
 def create_map_groups_from_associations(map_aux_dir, gt_stats_file, association_file, out_file,
-        cat=['small','medium','large'], verbose=True):
+        cat=['small','medium','large'], log_prefix_str=''):
     """Create an auxiliary file for mAP calculation based on gt categories using the association info"""
     df_assoc = pd.read_csv(association_file, index_col=False)
     pred_instances = np.load(os.path.join(map_aux_dir, "pred_labels.npy")).tolist()
@@ -234,5 +235,5 @@ def create_map_groups_from_associations(map_aux_dir, gt_stats_file, association_
 
         result[i, 0] = pred_ins
         result[i, 1] = pred_category
-    if verbose: print("MAP group file created in {} . . .".format(out_file))
+    print(log_prefix_str+"\tGrouping file saved in {} . . .".format(out_file))
     np.savetxt(out_file, result, '%d')

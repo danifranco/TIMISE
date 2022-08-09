@@ -76,7 +76,7 @@ def f1(tp,fp,fn):
     return (2*tp)/(2*tp+fp+fn) if tp > 0 else 0
 
 def calculate_matching_metrics(out_file, pred_group_file, categories=None, precomputed_matching_file=None, gt_stats_file=None, 
-                               thresh=0.5, report_matches=False):
+                               thresh=0.5, log_prefix_str=''):
     """Calculate detection/instance segmentation metrics between ground truth and predicted label images.
        Currently, the following metrics are implemented:
        'fp', 'tp', 'fn', 'precision', 'recall', 'accuracy', 'f1', 'thresh', 'n_true', 'n_pred', 'mean_true_score', 
@@ -105,23 +105,24 @@ def calculate_matching_metrics(out_file, pred_group_file, categories=None, preco
 
        report_matches: bool
            if True, additionally calculate matched_pairs and matched_scores (note, that this returns even gt-pred pairs whose scores are below  'thresh')
+    
+       log_prefix_str : str, optional
+           Prefix to be prepended to all prints. 
     """
     if gt_stats_file is None:
         _raise(ValueError("'gt_stats_file' need to be provided"))
-    
-    print("Using matching previously calculated with mAP . . .")
+
     df = pd.read_csv(precomputed_matching_file, index_col=False)
     df = df.sort_values(by=['gt_id'], ascending=True)
 
     df_gt = pd.read_csv(gt_stats_file, index_col=False)
-    #df_gt = df_gt.sort_values(by=['label'], ascending=True)
-
     df_pred = pd.read_csv(pred_group_file, names=['pred_id', 'category'], index_col=False, sep=' ')
 
     final_values = []
     _categories = categories.copy()
     _categories.append('total')
     for k, cat in enumerate(_categories):
+        print(log_prefix_str+"\tCalculating matching for {} category . . .".format(cat))
         if cat != 'total':
             l_true = df_gt[df_gt['category'] == cat]['label'].tolist()
             l_pred = df[df['gt_id'].isin(l_true)]['pred_id'].tolist()
@@ -135,7 +136,7 @@ def calculate_matching_metrics(out_file, pred_group_file, categories=None, preco
             l_pred = df_pred['pred_id'].tolist()
             df_aux = df
         
-        # Relabel instances and map them to run it faster
+        print(log_prefix_str+"\tRelabel gt instances and map them to run it faster . . .")
         gt_mapping = {}
         c = 1
         last_number = l_true[0]
@@ -147,7 +148,7 @@ def calculate_matching_metrics(out_file, pred_group_file, categories=None, preco
             gt_mapping[l_true[i]] = c
             l_true[i] = c   
 
-        # Relabel instances and map them to run it faster
+        print(log_prefix_str+"\tRelabel pred instances and map them to run it faster . . .")
         pred_mapping = {}
         c = 1
         last_number = l_pred[0]
@@ -159,9 +160,9 @@ def calculate_matching_metrics(out_file, pred_group_file, categories=None, preco
             pred_mapping[l_pred[i]] = c
             l_pred[i] = c
 
-        scores = np.zeros((len(l_true)+1, len(l_pred)+1), dtype=np.float32)
+        scores = np.zeros((len(l_true)+1, len(l_pred)+1), dtype=np.float16)
 
-        # Calculate the scores
+        print(log_prefix_str+"\tCalculate the scores . . .")
         df_aux = df_aux.reset_index()
         for index, row in df_aux.iterrows():
             i = int(row['gt_id'])
@@ -172,15 +173,13 @@ def calculate_matching_metrics(out_file, pred_group_file, categories=None, preco
         scores = scores[1:,1:]  # ignoring background
         n_true, n_pred = scores.shape
         n_matched = min(n_true, n_pred)
-
-        map_rev_true = gt_mapping.keys()
-        map_rev_pred = pred_mapping.keys()
-
+        
         def _single(thr):
             not_trivial = n_matched > 0 and np.any(scores >= thr)
             if not_trivial:
                 # compute optimal matching with scores as tie-breaker
-                costs = -(scores >= thr).astype(float) - scores / (2*n_matched)
+                costs = -(scores >= thr).astype(np.float16) - scores / (2*n_matched)
+                print(log_prefix_str+"\tRunning Hungarian method to match instances . . .")
                 true_ind, pred_ind = linear_sum_assignment(costs)
                 assert n_matched == len(true_ind) == len(pred_ind)
                 match_ok = scores[true_ind,pred_ind] >= thr
@@ -215,20 +214,7 @@ def calculate_matching_metrics(out_file, pred_group_file, categories=None, preco
                 mean_matched_score = mean_matched_score,
                 panoptic_quality   = panoptic_quality,
             )
-            if bool(report_matches):
-                if not_trivial:
-                    stats_dict.update (
-                        # int() to be json serializable
-                        matched_pairs  = tuple((int(map_rev_true[i]),int(map_rev_pred[j])) for i,j in zip(1+true_ind,1+pred_ind)),
-                        matched_scores = tuple(scores[true_ind,pred_ind]),
-                        matched_tps    = tuple(map(int,np.flatnonzero(match_ok))),
-                    )
-                else:
-                    stats_dict.update (
-                        matched_pairs  = (),
-                        matched_scores = (),
-                        matched_tps    = (),
-                    )
+
             return namedtuple('Matching', stats_dict.keys())(*stats_dict.values())
 
         if np.isscalar(thresh):
@@ -238,6 +224,7 @@ def calculate_matching_metrics(out_file, pred_group_file, categories=None, preco
             for v in value:
                 final_values.append(v)
 
+    print(log_prefix_str+"\tSaving matching metrics results in {}".format(out_file))
     out_results = pd.DataFrame.from_dict([v for v in final_values])   
     out_results.to_csv(out_file, index=False)
 
@@ -265,3 +252,4 @@ def print_matching_stats(stats_csv, show_categories=False):
     txt = txt.center(t.get_string().find(os.linesep))
     print(txt)
     print(t)
+

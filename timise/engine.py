@@ -17,7 +17,8 @@ from .utils import (Namespace, check_files, cable_length, create_map_aux_file_fr
 class TIMISE:
     """TIMISE main class """
     def __init__(self, metrics=['mAP', 'associations', 'matching', 'pred_stats'], split_categories=None,
-                 split_property=None, split_ths=None, map_chunk_size=10):
+                 split_property=None, split_ths=None, map_chunk_size=10, matching_stats_ths=[0.3, 0.5, 0.75],
+                 log_prefix_str=''):
         """TIMISE class initialization.
 
            Parameters
@@ -35,6 +36,13 @@ class TIMISE:
 
            map_chunk_size : int, optional
                How many slices to load (for memory-efficient computation).
+
+           matching_stats_ths : List of floats, optional
+               Thresholds to be used when calculation matching metrics. Each one must be in [0,1) range 
+               and refers to the minimum IoU to consider a TP. 
+
+           log_prefix_str : str, optional
+               Prefix to be prepended to all prints. 
         """
         if not isinstance(metrics, list):
             raise ValueError("'metrics' needs to be a list'")
@@ -59,6 +67,11 @@ class TIMISE:
         else:
             self.show_categories = False
 
+        for val in matching_stats_ths:
+            if not 0<= val < 1:
+                raise ValueError("'matching_stats_ths' values need to be in [0,1) range.")
+
+        self.log_prefix_str = log_prefix_str 
         self.metrics = metrics
         self.split_categories = split_categories
         self.split_property = split_property
@@ -91,7 +104,7 @@ class TIMISE:
 
         # Matching metrics
         self.matching_file = "matching_metrics.csv"
-        self.matching_stats_ths = [0.3, 0.5, 0.75]
+        self.matching_stats_ths = matching_stats_ths
 
         # Final gt errors
         self.final_errors_file = "gt_final.csv"
@@ -101,48 +114,47 @@ class TIMISE:
         self.method_names = []
 
 
-    def evaluate(self, pred_dir, gt_dir, out_dir, data_resolution=[30,8,8], verbose=True):
+    def evaluate(self, pred_dir, gt_dir, out_dir, data_resolution=[30,8,8]):
         self.data_resolution = data_resolution
-        self.verbose = verbose
 
-        print("*** Preliminary checks . . . ")
+        print(self.log_prefix_str+"####### Preliminary checks #######")
         if not os.path.isdir(pred_dir):
             raise FileNotFoundError("{} directory does not exist".format(pred_dir))
         if not os.path.isdir(gt_dir):
             raise FileNotFoundError("{} directory does not exist".format(pred_dir))
         else:
-            self.gt_file = check_files(gt_dir, verbose=verbose)
+            self.gt_file = check_files(gt_dir)
 
         pfolder_ids = sorted(next(os.walk(pred_dir))[1])
         pfolder_ids = [os.path.join(pred_dir, p) for p in pfolder_ids]
         pfolder_ids = [p for p in pfolder_ids if os.path.normpath(p) != gt_dir]
         self.multiple_preds = True if len(pfolder_ids) > 1 else False
         if self.multiple_preds or len(pfolder_ids) == 1:
-            if verbose: print("Found {} predictions: {}".format(len(pfolder_ids), pfolder_ids))
+            print(self.log_prefix_str+"\tFound {} predictions: {}".format(len(pfolder_ids), pfolder_ids))
         else:
-            if verbose: print("No subfolders found, only considering files in {}".format(pred_dir))
+            print(self.log_prefix_str+"\tNo subfolders found, only considering files in {}".format(pred_dir))
             pfolder_ids = [pred_dir]
-
-        print("*** [DONE] Preliminary checks . . .")
 
         os.makedirs(out_dir, exist_ok=True)
 
         #################
         # GT statistics #
         #################
+        print(self.log_prefix_str+"####### GT statistics #######")
         gt_stats_out_file = os.path.join(out_dir, self.stats_gt_out_filename)
-        print("Calculating GT statistics . . .")
+        print(self.log_prefix_str+"\tCalculating GT statistics . . .")
         self._get_file_statistics(self.gt_file, gt_stats_out_file)
         if not self.split_categories is None and self.split_property == 'cable_length' and 'map' in self.metrics:
-            print("Creating grouping aux file for mAP calculation . . .")
+            print(self.log_prefix_str+"\tCreating grouping aux file . . .")
             gt_map_th_aux_file = os.path.join(out_dir, "gt_"+self.grouping_file)
-            create_map_aux_file_from_stats(gt_stats_out_file, gt_map_th_aux_file, cat=self.split_categories)
+            create_map_aux_file_from_stats(gt_stats_out_file, gt_map_th_aux_file, cat=self.split_categories,
+                log_prefix_str=self.log_prefix_str)
         else:
             gt_map_th_aux_file = ''
 
-        print("*** Evaluating . . .")
+        print("\n\n"+self.log_prefix_str+"--- Start evaluation ---")
         for n, id_ in enumerate(pfolder_ids):
-            print("Processing folder {}".format(id_))
+            print(self.log_prefix_str+"Processing folder {}".format(id_))
 
             pred_out_dir = os.path.join(out_dir, os.path.basename(os.path.normpath(id_)))
             self.pred_out_dirs.append(pred_out_dir)
@@ -159,7 +171,7 @@ class TIMISE:
             os.makedirs(pred_out_dir, exist_ok=True)
 
             # Ensure .tif/.h5 files are created
-            pred_file = check_files(id_, verbose=verbose)
+            pred_file = check_files(id_)
             self.pred_files.append(pred_file)
 
 
@@ -167,37 +179,42 @@ class TIMISE:
             # Predictions statistics #
             ##########################
             if 'pred_stats' in self.metrics or 'associations' in self.metrics:
-                if not os.path.exists(stats_out_file):
-                    print("Calculating predictions statistics . . .")
+                print(self.log_prefix_str+"####### Predictions statistics #######")
+                if not os.path.exists(stats_out_file):        
+                    print(self.log_prefix_str+"\tCalculating predictions statistics . . .")
                     self._get_file_statistics(pred_file, stats_out_file)
                 else:
-                    print("Skipping predictions statistics calculation (seems to be done here: {} )".format(stats_out_file))
+                    print(self.log_prefix_str+"\tSkipping predictions statistics calculation (seems to be done here: {} )".format(stats_out_file))
                 
 
             ################
             # Associations #
             ################
             if not os.path.exists(precomputed_matching_file) or not os.path.exists(assoc_file):
+                print(self.log_prefix_str+"####### Computing matching between predictions and ground truth #######")
                 args = Namespace(gt_seg=self.gt_file, predict_seg=pred_file, gt_bbox='', predict_score='', predict_bbox='',
                                 predict_heatmap_channel=-1, threshold=self.map_th, threshold_crumb=0,
                                 chunk_size=self.map_chunk_size, output_name=os.path.join(pred_out_dir, "map"),
-                                group_gt='', group_pred='', do_txt=1, do_eval=1, slices=-1, verbose=verbose, 
+                                group_gt='', group_pred='', do_txt=1, do_eval=1, slices=-1, 
                                 matching_out_file=precomputed_matching_file, associations_file=assoc_file, 
-                                aux_dir=map_aux_dir, associations=True)
+                                aux_dir=map_aux_dir, log_prefix_str=self.log_prefix_str, associations=True)
                 mAP_computation_fast(args)         
 
-            if not os.path.exists(final_error_file):
-                print("Calculating associations . . .")
-                calculate_associations_from_map(assoc_file, gt_stats_out_file, assoc_stats_file, final_error_file)
-            else:
-                print("Skipping association calculation (seems to be done here: {} )".format(final_error_file))
+            if 'associations' in self.metrics:
+                print(self.log_prefix_str+"####### Computing association metrics #######")
+                if not os.path.exists(final_error_file): 
+                    print(self.log_prefix_str+"\tCalculating associations . . .")
+                    calculate_associations_from_map(assoc_file, gt_stats_out_file, assoc_stats_file, final_error_file,
+                        self.log_prefix_str)
+                else:
+                    print(self.log_prefix_str+"\tSkipping association calculation (seems to be done here: {} )".format(final_error_file))
 
-            # Creating the mAP auxiliary file
+            # Creating the grouping file
             if not self.split_categories is None and self.split_property == 'cable_length':
-                print("Creating grouping aux file . . .")
+                print(self.log_prefix_str+"####### Grouping file #######")
                 if not os.path.exists(pred_grouping_file):
                     create_map_groups_from_associations(map_aux_dir, gt_stats_out_file, assoc_file, pred_grouping_file,
-                        cat=self.split_categories, verbose=verbose)   
+                        cat=self.split_categories, log_prefix_str=self.log_prefix_str)   
             else:
                 pred_grouping_file = ''
 
@@ -205,31 +222,34 @@ class TIMISE:
             # mAP #
             #######
             if 'map' in self.metrics:
+                print(self.log_prefix_str+"####### Computing mAP #######")
                 if not os.path.exists(map_out_file):
-                    print("Run mAP code . . .")
+                    print(self.log_prefix_str+"\tRun mAP code . . .")
                     args = Namespace(gt_seg=self.gt_file, predict_seg=pred_file, gt_bbox='', predict_score='', predict_bbox='',
                                 predict_heatmap_channel=-1, threshold=self.map_th, threshold_crumb=0,
                                 chunk_size=self.map_chunk_size, output_name=os.path.join(pred_out_dir, "map"),
                                 group_gt=gt_map_th_aux_file, group_pred=pred_grouping_file, do_txt=1, do_eval=1, 
-                                slices=-1, verbose=verbose, matching_out_file=precomputed_matching_file, 
-                                associations_file=assoc_file, aux_dir=map_aux_dir, associations=False)
+                                slices=-1, matching_out_file=precomputed_matching_file, 
+                                associations_file=assoc_file, aux_dir=map_aux_dir, log_prefix_str=self.log_prefix_str, 
+                                associations=False)
                     mAP_computation_fast(args)  
                 else:
-                    print("Skipping mAP calculation (seems to be done here: {} )".format(map_out_file))
+                    print(self.log_prefix_str+"\tSkipping mAP calculation (seems to be done here: {} )".format(map_out_file))
 
             ####################
             # Matching metrics #
             ####################
             if 'matching' in self.metrics:
+                print(self.log_prefix_str+"####### Computing matching metrics #######")
                 if not os.path.exists(matching_file):
-                    print("Calculating matching metrics . . .")
+                    print(self.log_prefix_str+"\tCalculating matching metrics . . .")
                     calculate_matching_metrics(matching_file, pred_grouping_file, self.split_categories, 
                         precomputed_matching_file=precomputed_matching_file, gt_stats_file=gt_stats_out_file,  
-                        thresh=self.matching_stats_ths, report_matches=False)
+                        thresh=self.matching_stats_ths, log_prefix_str=self.log_prefix_str)
                 else:
-                    print("Skipping matching metrics calculation (seems to be done here: {} )".format(matching_file))
+                    print(self.log_prefix_str+"\tSkipping matching metrics calculation (seems to be done here: {} )".format(matching_file))
 
-        print("*** [DONE] Evaluating . . .")
+        print("\n"+self.log_prefix_str+"--- End evaluation ---")
 
 
     def summary(self):
@@ -237,7 +257,7 @@ class TIMISE:
             raise ValueError("No data found. Did you call TIMISE.evaluate()?")
 
         for f in self.pred_out_dirs:
-            print("Stats in {}".format(f))
+            print(self.log_prefix_str+"Stats in {}".format(f))
             print('')
             if 'map' in self.metrics:
                 print_mAP_stats(os.path.join(f, self.map_stats_file))
@@ -383,13 +403,13 @@ class TIMISE:
                 line = "    s.layers[\"segmentation\"].layer.segments = {"+label_ids+"}\n"
             sys.stdout.write(line)
         
-        print("Neuroglancer script created in {}".format(f))
+        print(self.log_prefix_str+"Neuroglancer script created in {}".format(f))
         
 
     def _get_file_statistics(self, input_file, out_csv_file):
         """Calculate instances statistics such as volume, skeleton size and cable length."""
         if not os.path.exists(out_csv_file):
-            if self.verbose: print("Reading file {} . . .".format(input_file))
+            print(self.log_prefix_str+"\tReading file {} . . .".format(input_file))
             if str(input_file).endswith('.h5'):
                 h5f = h5py.File(input_file, 'r')
                 k = list(h5f.keys())
@@ -397,15 +417,15 @@ class TIMISE:
             else:
                 img = imread(input_file)
 
-            if self.verbose: print("Calculating volumes . . .")
+            print(self.log_prefix_str+"\tCalculating volumes . . .")
             values, volumes = np.unique(img, return_counts=True)
             values=values[1:].tolist()
             volumes=volumes[1:].tolist()
 
-            if self.verbose: print("Skeletonizing . . .")
+            print(self.log_prefix_str+"\tSkeletonizing . . .")
             skels = kimimaro.skeletonize(img, parallel=0, parallel_chunk_size=100, dust_threshold=0)
             keys = list(skels.keys())
-            if self.verbose: print("Calculating cable length . . .")
+            print(self.log_prefix_str+"\tCalculating cable length . . .")
             del img
             c_length = []
             skel_size = []
@@ -432,16 +452,17 @@ class TIMISE:
             data_tuples = list(zip(keys,vol,skel_size,c_length))
             dataframe = pd.DataFrame(data_tuples, columns=['label','volume','skel_size','cable_length'])
         else:
-            print("Skipping GT statistics calculation (seems to be done here: {} )".format(out_csv_file))
+            print(self.log_prefix_str+"\tSkipping GT statistics calculation (seems to be done here: {} )".format(out_csv_file))
             dataframe = pd.read_csv(out_csv_file, index_col=False)
 
         if not self.split_categories is None and not 'categories' in dataframe.columns:
-            if self.verbose: print("Adding categories information . . .")
+            print(self.log_prefix_str+"\tAdding categories information . . .")
             dataframe['category'] = self.split_categories[0]
             for i in range(len(self.split_ths)):
                 dataframe.loc[dataframe[self.split_property] >= self.split_ths[i], "category"] = self.split_categories[i+1]
             dataframe = dataframe.sort_values(by=[self.split_property])
         else:
             dataframe = dataframe.sort_values(by=['volume'])
+        print(self.log_prefix_str+"\tSaving statistics in {}".format(out_csv_file))
         dataframe.to_csv(out_csv_file, index=False)
 

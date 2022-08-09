@@ -14,7 +14,7 @@ from .vol3d_eval import VOL3Deval
 from .vol3d_util import seg_iou3d_sorted, readh5_handle, readh5, seg_bbox3d
 from ..utils import mAP_out_arrays_to_dataframes
 
-def load_data(args, slices, verbose=True):
+def load_data(args, slices, log_prefix_str=''):
     # load data arguments
     pred_seg = readh5_handle(args.predict_seg)
     gt_seg = readh5_handle(args.gt_seg)
@@ -33,7 +33,7 @@ def load_data(args, slices, verbose=True):
         raise ValueError('Warning: size mismatch. gt: {}, pred: '.format(sz_gt,sz_pred))
 
     if args.predict_score != '':
-        if verbose: print('\t\t Load prediction score')
+        print(log_prefix_str+'\t\tLoad prediction score')
         # Nx2: pred_id, pred_sc
         if '.h5' in args.predict_score:
             pred_score = readh5(args.predict_score)
@@ -49,10 +49,11 @@ def load_data(args, slices, verbose=True):
     else: # default
         # alternative: sort by size
         if not os.path.exists(os.path.join(args.aux_dir, "pred_ui.npy")):
-            print('\t\t Assigning prediction score')
-            ui, uc = seg_bbox3d(pred_seg, slices, uid=None, chunk_size = args.chunk_size, aux_dir=args.aux_dir, verbose=verbose)
+            print(log_prefix_str+'\t\tAssigning prediction score')
+            ui, uc = seg_bbox3d(pred_seg, slices, uid=None, chunk_size = args.chunk_size, aux_dir=args.aux_dir, 
+                log_prefix_str=log_prefix_str)
         else:
-            print('\t\t Loading prediction score from file')
+            print(log_prefix_str+'\t\tLoading prediction score from file')
             ui = np.load(os.path.join(args.aux_dir, "pred_ui.npy"))
             uc = np.load(os.path.join(args.aux_dir, "pred_uc.npy"))
 
@@ -89,7 +90,7 @@ def mAP_computation(_args):
 
     ## 1. Load data
     start_time = int(round(time.time() * 1000))
-    if args.verbose: print('\t1. Load data')
+    print(args.log_prefix_str+'\t1. Load data')
 
     def _return_slices():
         # check if args.slices is well defined and return slices array [slice1, sliceN]
@@ -111,18 +112,18 @@ def mAP_computation(_args):
 
     gt_seg, pred_seg, pred_score, group_gt, group_pred, areaRng, slices, gt_bbox, pred_bbox = load_data(args, slices)
     ## 2. create complete mapping of ids for gt and pred:
-    if args.verbose: print('\t2. Compute IoU')
+    print(args.log_prefix_str+'\t2. Compute IoU')
     result_p, result_fn, pred_score_sorted = seg_iou3d_sorted(pred_seg, gt_seg, pred_score, slices, group_gt, areaRng, args.chunk_size, args.threshold_crumb, pred_bbox, gt_bbox)
     stop_time = int(round(time.time() * 1000))
-    if args.verbose: print('\t-RUNTIME:\t{} [sec]\n'.format((stop_time-start_time)/1000) )
+    print(args.log_prefix_str+'\tRUNTIME:\t{} [sec]\n'.format((stop_time-start_time)/1000) )
     
     ## 3. Evaluation script for 3D instance segmentation
-    v3dEval = VOL3Deval(result_p, result_fn, pred_score_sorted, output_name=args.output_name, verbose=args.verbose)
+    v3dEval = VOL3Deval(result_p, result_fn, pred_score_sorted, output_name=args.output_name)
     if args.do_txt > 0:
         v3dEval.save_match_p()
         v3dEval.save_match_fn()
     if args.do_eval > 0:
-        if args.verbose: print('start evaluation')
+        print(args.log_prefix_str+'start evaluation')
         #Evaluation
         v3dEval.set_group(group_gt, group_pred)
         v3dEval.params.areaRng = areaRng
@@ -154,9 +155,9 @@ def mAP_computation_fast(_args):
 
     slices = _return_slices()
 
-    if args.verbose: print('\t1. Load data')
+    print(args.log_prefix_str+'\t1. Load data')
     os.makedirs(args.aux_dir, exist_ok=True)
-    gt_seg, pred_seg, pred_score, group_gt, group_pred, areaRng, slices, gt_bbox, pred_bbox = load_data(args, slices, args.verbose)
+    gt_seg, pred_seg, pred_score, group_gt, group_pred, areaRng, slices, gt_bbox, pred_bbox = load_data(args, slices, args.log_prefix_str)
     
     # Hack the area range
     if args.associations:         
@@ -165,24 +166,24 @@ def mAP_computation_fast(_args):
         areaRng[1,1] = 1e10
 
     ## 2. create complete mapping of ids for gt and pred:
-    if args.verbose: print('\t2. Compute IoU')
+    print(args.log_prefix_str+'\t2. Compute IoU')
     result_p, result_fn, pred_score_sorted = seg_iou3d_sorted(pred_seg, gt_seg, pred_score, slices, group_gt, areaRng, args.chunk_size, 
-        args.threshold_crumb, pred_bbox, gt_bbox, args.aux_dir, args.verbose)
+        args.threshold_crumb, pred_bbox, gt_bbox, args.aux_dir, args.log_prefix_str)
     stop_time = int(round(time.time() * 1000))
 
     if not os.path.exists(args.matching_out_file) or not os.path.exists(args.associations_file):
-        mAP_out_arrays_to_dataframes(result_p, result_fn, args.matching_out_file, args.associations_file, verbose=True)
+        mAP_out_arrays_to_dataframes(result_p, result_fn, args.matching_out_file, args.associations_file, args.log_prefix_str)
         
-    if args.verbose: print('\tRUNTIME:\t{} [sec]\n'.format((stop_time-start_time)/1000) )
+    print(args.log_prefix_str+'\tRUNTIME:\t{} [sec]\n'.format((stop_time-start_time)/1000) )
  
     if not args.associations:
         ## 3. Evaluation script for 3D instance segmentation
-        v3dEval = VOL3Deval(result_p, result_fn, pred_score_sorted, output_name=args.output_name, verbose=args.verbose)
+        v3dEval = VOL3Deval(result_p, result_fn, pred_score_sorted, output_name=args.output_name)
         if args.do_txt > 0:
             v3dEval.save_match_p()
             v3dEval.save_match_fn()
         if args.do_eval > 0:
-            if args.verbose: print('start evaluation')
+            print(args.log_prefix_str+'start evaluation')
             #Evaluation
             v3dEval.set_group(group_gt, group_pred)
             v3dEval.params.areaRng = areaRng

@@ -52,16 +52,15 @@ class VOL3Deval:
     # Data, paper, and tutorials available at:  http://mscoco.org/
     # Code written by Piotr Dollar and Tsung-Yi Lin, 2015.
     # Licensed under the Simplified BSD License [see coco/license.txt]
-    def __init__(self, result_p, result_fn, score_p=None, iouType='segm', output_name='', verbose=True):
+    def __init__(self, result_p, result_fn, score_p=None, iouType='segm', output_name=''):
         '''
         Initialize CocoEval using coco APIs for gt and dt
         :param cocoGt: coco object with ground truth annotations
         :param cocoDt: coco object with detection results
         :return: None
         '''
-        self.verbose = verbose
 
-        if not iouType and verbose:
+        if not iouType:
             print('iouType not specified. use default iouType segm')
         # num_obj x {all, s, m ,l} x {id, size, IOU}
 
@@ -157,7 +156,7 @@ class VOL3Deval:
         :return: None
         '''
 
-        if self.verbose: print('Accumulating evaluation results...')
+        print('Accumulating evaluation results...')
         tic = time.time()
 #         if not self.evalImgs:
 #             print('Please run evaluate() first')
@@ -236,7 +235,7 @@ class VOL3Deval:
             'scores': scores,
         }
         toc = time.time()
-        if self.verbose: print('DONE (t={:0.2f}s).'.format( toc-tic))
+        print('DONE (t={:0.2f}s).'.format( toc-tic))
 
     def summarize(self):
         '''
@@ -277,7 +276,7 @@ class VOL3Deval:
 
             msg = iStr.format(titleStr, typeStr, iouStr, areaRng, maxDets, mean_s)
             if self.output_writer is None:
-                if self.verbose: print(msg)
+                print(msg)
             else:
                 self.output_writer.write(msg+'\n')
 

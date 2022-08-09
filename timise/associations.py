@@ -8,7 +8,7 @@ import plotly.express as px
 
 from .utils import str_list_to_ints_list
 
-def calculate_associations_from_map(assoc_file, gt_stats_file, assoc_stats_file, final_file):
+def calculate_associations_from_map(assoc_file, gt_stats_file, assoc_stats_file, final_file, log_prefix_str=''):
     """Calculate associations between instances. Based on the idea presented in `Assessment of deep learning
        algorithms for 3D instance segmentation of confocal image datasets
        <https://www.biorxiv.org/content/10.1101/2021.06.09.447748v1.full>`_.
@@ -26,6 +26,9 @@ def calculate_associations_from_map(assoc_file, gt_stats_file, assoc_stats_file,
 
        final_file : str
            Path where the final error file will be stored.
+
+       log_prefix_str : str, optional
+           Prefix to be prepended to all prints. 
     """
     assoc_df = pd.read_csv(assoc_file, index_col=False)
     out_dir = os.path.dirname(final_file)
@@ -135,6 +138,8 @@ def calculate_associations_from_map(assoc_file, gt_stats_file, assoc_stats_file,
         assoc_summary_df = pd.DataFrame.from_dict([{k:[v] for k,v in cell_statistics.items()}])
         assoc_summary_df = assoc_summary_df.set_axis(['all'])
 
+    print(log_prefix_str+"\tSaving associations metrics results in {}".format(final_file))
+    print(log_prefix_str+"\tSaving associations summary in {}".format(os.path.join(out_dir, assoc_stats_file)))
     # Save association final results and a summary to print it easily 
     final_df.to_csv(final_file, index=False)
     assoc_summary_df.to_csv(os.path.join(out_dir, assoc_stats_file))
