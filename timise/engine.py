@@ -272,7 +272,8 @@ class TIMISE:
 
     def plot(self, plot_type='pie', show=True, individual_plots=False, nbins=30, draw_std=True,
              color_by="association_type", symbol="category", draw_plane=True, xaxis_range=None,
-             yaxis_range=None, log_x=False, log_y=False, font_size=25, order=[], plot_shape=[1100,500]):
+             yaxis_range=None, log_x=False, log_y=False, font_size=25, order=[], plot_shape=[1100,500],
+             hplot_max=-1, vplot_max=-1):
         """Plot errors in different formats. When multiple predictions are available a common plot is created.
 
            Parameters
@@ -334,7 +335,7 @@ class TIMISE:
         if len(plot_shape) != 2:
             raise ValueError("'plot_shape' needs to have 2 values: [width, height]")
 
-        plotter = Plotter()
+        plotter = Plotter(hplot_max_value=hplot_max, vplot_max_value=vplot_max)
 
         final_file = os.path.join(self.pred_out_dirs[0], self.final_errors_file)
         assoc_file = os.path.join(self.pred_out_dirs[0], self.association_stats_file) 

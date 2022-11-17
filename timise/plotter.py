@@ -11,7 +11,7 @@ from collections import OrderedDict
 class Plotter():
     """ Sets up a seaborn environment and holds the functions for plotting our figures. """
 
-    def __init__(self, quality=1):
+    def __init__(self, quality=1, hplot_max_value=-1, vplot_max_value=-1):
         # Set mpl DPI in case we want to output to the screen / notebook
         mpl.rcParams['figure.dpi'] = 150
         
@@ -24,14 +24,18 @@ class Plotter():
 
         self.colors_main = OrderedDict({
             'one-to-one': current_palette[2],
-            'missing': current_palette[9],
+            'missing': current_palette[3],
             'over': current_palette[8],
             'under': current_palette[6],
-            'many': current_palette[3],
+            'many': current_palette[9],
             'background': current_palette[4],
         })
-
+        self.vplot_pallete = OrderedDict({
+            'FP': current_palette[0],
+            'FN': current_palette[1]})
         self.quality = quality
+        self.hplot_max_value = hplot_max_value
+        self.vplot_max_value = vplot_max_value
 
     def combined_plot_multiple_predictions(self, prediction_dirs, assoc_file, matching_file, show=True, match_th=0.75):
         """Calls combined_plot for each prediction. """
@@ -86,6 +90,8 @@ class Plotter():
 
         colors = self.colors_main.copy()
 
+        error_types.remove('background')
+        del colors['background']
         if hide_correct:
             error_types.remove('one-to-one')
             del colors['one-to-one']
@@ -112,7 +118,6 @@ class Plotter():
                         error_sum += int(df2[error][i].replace('[',' ').replace(']',' ').replace(',',''))
                 error_number_per_type[error] = error_sum-error_number_per_type[error]
             error_sizes = [error_number_per_type[e] / error_sum for e in error_types]
-            
             error_dfs = pd.DataFrame((k2, v2) for k2, v2 in error_number_per_type.items())
             error_dfs.columns = ['Error Type', 'Count']
             
@@ -140,10 +145,14 @@ class Plotter():
             fig, ax = plt.subplots(1, 1, figsize = (6, 5), dpi=high_dpi)
             sns.barplot(data=error_dfs, x='Count', y='Error Type', ax=ax,
                         palette=colors.values())
+            if self.hplot_max_value != -1:
+                ax.set_xlim(0, self.hplot_max_value)
             ax.set_xlabel('')
             ax.set_ylabel('')
             plt.setp(ax.get_xticklabels(), fontsize=28)
             plt.setp(ax.get_yticklabels(), fontsize=36)
+            plt.setp(ax.get_xticklabels(), rotation=45, horizontalalignment='right')
+            
             ax.grid(False)
             sns.despine(left=True, bottom=True, right=True)
             hbar_path = os.path.join(save_path, cat, '{}_{}hbar.png'.format(model_name, fname))
@@ -160,7 +169,9 @@ class Plotter():
             df_aux.reset_index(inplace=True)
             df_aux.columns=["Metric", "Count"]
             fig, ax = plt.subplots(1, 1, figsize = (2, 5), dpi=high_dpi)
-            sns.barplot(data=df_aux, x="Metric", y="Count", ax=ax, palette=colors.values())
+            sns.barplot(data=df_aux, x="Metric", y="Count", ax=ax, palette=self.vplot_pallete.values())
+            if self.vplot_max_value != -1:
+                ax.set_ylim(0, self.vplot_max_value)
             ax.set_xlabel('')
             ax.set_ylabel('')
             ax.set_xticklabels(xlabels)
@@ -176,10 +187,14 @@ class Plotter():
             pie_im  = cv2.imread(pie_path)
             hbar_im = cv2.imread(hbar_path)
             vbar_im = cv2.imread(vbar_path)
-            
+
             # pad the hbar image vertically
-            hbar_im = np.concatenate([np.zeros((vbar_im.shape[0] - hbar_im.shape[0], hbar_im.shape[1], 3)) + 255, hbar_im],
-                                    axis=0)
+            if vbar_im.shape[0] - hbar_im.shape[0] > 0:
+                hbar_im = np.concatenate([np.zeros((vbar_im.shape[0] - hbar_im.shape[0], hbar_im.shape[1], 3)) + 255, hbar_im],
+                                        axis=0)
+            else:
+                vbar_im = np.concatenate([np.zeros((hbar_im.shape[0] - vbar_im.shape[0], vbar_im.shape[1], 3)) + 255, vbar_im],
+                                        axis=0)
             summary_im = np.concatenate([hbar_im, vbar_im], axis=1)
             
             # pad summary_im
