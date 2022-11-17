@@ -18,8 +18,8 @@ and matching metrics. Thus, you could analize the errors between these two volum
 ## Installation
 Create a conda environment with all the dependencies:
 ```shell
-conda env create -f environment.yml
-conda activate timise
+conda create -n timise python=3.9
+pip install -r requirements.txt
 ```
 
 ## Usage
@@ -49,44 +49,63 @@ Example of the tables printed in the console:
 ```
 Stats in /home/user/analysis/output/model_xx_prediction
 
-              Average Precision (AP)
+
+              Average Precision (AP)              
 +---------------+----------+----------+----------+
 | IoU=0.50:0.95 | IoU=0.50 | IoU=0.75 | IoU=0.90 |
 +---------------+----------+----------+----------+
-|     0.299     |  0.685   |  0.216   |  0.216   |
+|     0.087     |  0.369   |  0.035   |   0.0    |
 +---------------+----------+----------+----------+
 
-                                                                                                                   Prediction
-                                         Ground truth associations                                              false positives
+                                                                                                                   Prediction   
+                                         Ground truth associations                                              false positives 
 +----------+-------+------------+---------+-------------------+--------------------+--------------+-------+------+------------+
 | category |       | one-to-one | missing | over-segmentation | under-segmentation | many-to-many | Total |      | background |
 +----------+-------+------------+---------+-------------------+--------------------+--------------+-------+------+------------+
-|  small   | Count |     1      |    0    |         0         |         1          |      0       |   2   |      |     17     |
-|          |   %   |    50.0    |   0.0   |        0.0        |        50.0        |     0.0      |       |      |            |
-|  medium  | Count |     2      |    0    |         0         |         1          |      0       |   3   |      |     -      |
-|          |   %   |   66.67    |   0.0   |        0.0        |       33.33        |     0.0      |       |      |            |
-|  large   | Count |     0      |    0    |         1         |         0          |      0       |   1   |      |     -      |
-|          |   %   |    0.0     |   0.0   |       100.0       |        0.0         |     0.0      |       |      |            |
+|  small   | Count |     37     |    7    |         5         |         1          |      0       |   50  |      |     25     |
+|          |   %   |    74.0    |   14.0  |        10.0       |        2.0         |     0.0      |       |      |            |
+|  medium  | Count |     29     |    0    |         3         |         3          |      0       |   35  |      |     -      |
+|          |   %   |   82.86    |   0.0   |        8.57       |        8.57        |     0.0      |       |      |            |
+|  large   | Count |     13     |    0    |         5         |         1          |      0       |   19  |      |     -      |
+|          |   %   |   68.42    |   0.0   |       26.32       |        5.26        |     0.0      |       |      |            |
 |          |       |            |         |                   |                    |              |       |      |            |
-|  TOTAL   | Count |     3      |    0    |         1         |         2          |      0       |   6   |      |     17     |
-|          |   %   |    50.0    |   0.0   |       16.67       |       33.33        |     0.0      |  100  |      |   65.38    |
+|  TOTAL   | Count |     79     |    7    |         13        |         5          |      0       |  104  |      |     25     |
+|          |   %   |   75.96    |   6.73  |        12.5       |        4.81        |     0.0      |  100  |      |   16.03    |
 +----------+-------+------------+---------+-------------------+--------------------+--------------+-------+------+------------+
 
-                                                                 Matching metrics
-+--------+------+-----+-----+-----------+--------+----------+-------+--------+--------+-----------------+--------------------+------------------+
-| thresh |  fp  |  tp |  fn | precision | recall | accuracy |   f1  | n_true | n_pred | mean_true_score | mean_matched_score | panoptic_quality |
-+--------+------+-----+-----+-----------+--------+----------+-------+--------+--------+-----------------+--------------------+------------------+
-|  0.3   | 21.0 | 5.0 | 1.0 |   0.192   | 0.833  |  0.185   | 0.312 |  6.0   |  26.0  |      0.691      |        0.83        |      0.259       |
-|  0.5   | 21.0 | 5.0 | 1.0 |   0.192   | 0.833  |  0.185   | 0.312 |  6.0   |  26.0  |      0.691      |        0.83        |      0.259       |
-|  0.75  | 23.0 | 3.0 | 3.0 |   0.115   |  0.5   |  0.103   | 0.188 |  6.0   |  26.0  |      0.498      |       0.996        |      0.187       |
-+--------+------+-----+-----+-----------+--------+----------+-------+--------+--------+-----------------+--------------------+------------------+
+                                                                     Matching metrics                                                                    
++----------+--------+-----+----+----+-----------+--------+----------+-------+--------+--------+-----------------+--------------------+------------------+
+| category | thresh |  fp | tp | fn | precision | recall | accuracy |   f1  | n_true | n_pred | mean_true_score | mean_matched_score | panoptic_quality |
++----------+--------+-----+----+----+-----------+--------+----------+-------+--------+--------+-----------------+--------------------+------------------+
+|  small   |  0.3   |  41 | 36 | 14 |   0.468   |  0.72  |  0.396   | 0.567 |   50   |   77   |      0.362      |       0.503        |      0.285       |
+|  small   |  0.5   |  57 | 20 | 30 |    0.26   |  0.4   |  0.187   | 0.315 |   50   |   77   |      0.233      |       0.582        |      0.183       |
+|  small   |  0.75  |  77 | 0  | 50 |    0.0    |  0.0   |   0.0    |  0.0  |   50   |   77   |       0.0       |        0.0         |       0.0        |
+|  medium  |  0.3   |  8  | 30 | 5  |   0.789   | 0.857  |  0.698   | 0.822 |   35   |   38   |       0.49      |       0.571        |       0.47       |
+|  medium  |  0.5   |  16 | 22 | 13 |   0.579   | 0.629  |  0.431   | 0.603 |   35   |   38   |      0.391      |       0.622        |      0.375       |
+|  medium  |  0.75  |  34 | 4  | 31 |   0.105   | 0.114  |  0.058   |  0.11 |   35   |   38   |      0.089      |       0.783        |      0.086       |
+|  large   |  0.3   |  24 | 17 | 2  |   0.415   | 0.895  |  0.395   | 0.567 |   19   |   41   |      0.495      |       0.554        |      0.314       |
+|  large   |  0.5   |  30 | 11 | 8  |   0.268   | 0.579  |  0.224   | 0.367 |   19   |   41   |      0.359      |        0.62        |      0.227       |
+|  large   |  0.75  |  40 | 1  | 18 |   0.024   | 0.053  |  0.017   | 0.033 |   19   |   41   |      0.044      |       0.829        |      0.028       |
+|  total   |  0.3   |  73 | 83 | 21 |   0.532   | 0.798  |  0.469   | 0.638 |  104   |  156   |      0.429      |       0.537        |      0.343       |
+|  total   |  0.5   | 103 | 53 | 51 |    0.34   |  0.51  |  0.256   | 0.408 |  104   |  156   |      0.309      |       0.607        |      0.247       |
+|  total   |  0.75  | 151 | 5  | 99 |   0.032   | 0.048  |   0.02   | 0.038 |  104   |  156   |      0.038      |       0.792        |       0.03       |
++----------+--------+-----+----+----+-----------+--------+----------+-------+--------+--------+-----------------+--------------------+------------------+
 ```
 
-And a summary plot for your model's errors:
+And a summary plot for your model's errors:                                                                                                                                  
 
+<p align="center">
+  <img src="https://github.com/danifranco/TIMISE/blob/main/examples/img/toy_summary.png" alt="summary_plot" width="500"/>
+</p>
+
+
+Or, if called as ``timise.plot("error_2d")`` something like this is generated:
 <p align="center">
   <img src="https://github.com/danifranco/TIMISE/blob/main/examples/img/plot_error_example.png" alt="summary_plot" width="500"/>
 </p>
+
+## Jupyter Notebook
+Check out the jupyter notebooks in [examples folder](https://github.com/danifranco/TIMISE/blob/main/examples) for more details.
 
 ## Details
 Two different workflows are implemented:
@@ -98,30 +117,31 @@ These are the files that the toolbox will create:
 
 ```shell
 /home/user/output_folder/model_xx_prediction_folder/
-├─ model_xx_prediction_folder/
-│  ├─ associations.csv
-│  ├─ associations_stats.csv
-│  ├─ gt_final.csv
-│  ├─ map.csv
-│  ├─ map_map.txt
-│  ├─ matching_metrics.csv
-│  ├─ prediction_stats.csv
-│  ├─ target_daughter_matching_file.csv
-│  ├─ target_mother_matching_file.csv
+└─ model_xx_prediction_folder/
+   ├─ associations.csv
+   ├─ associations_stats.csv
+   ├─ gt_final.csv
+   ├─ map_map.txt
+   ├─ map_match_p.txt
+   ├─ map_match_fn.txt
+   ├─ matching_metrics.csv
+   ├─ prediction_stats.csv
+   ├─ pred_gt_matching_info.csv
+   ├─ pred_group_file.txt
+   └─ plots
 ```
 
-- ``associations.csv``: associations between predicted and gt instances. Created when associations metrics are computed. 
-- ``associations_stats.csv``: summary of the associations to print them easily. Created when associations metrics are computed. 
-- ``gt_final.csv``: gt statistics mixed with the association errors. Used to generate the final plots easily. Created when associations metrics are computed. 
-- ``map.csv``: matching stats between prediction and gt instances. Created when mAP metric is computed.  
-- ``map_map.txt``: mAP auxiliary file. Created when mAP metric is computed. 
-- ``matching_metrics.csv``: summary of the matching metrics to print them easily. Created when matching metrics are computed.  
-- ``prediction_stats.csv``: statistics of predicted instances. Created when prediction statistics are computed.  
-- ``target_daughter_matching_file.csv``: auxiliary matching file used for association metrics. Created when associations metrics are computed. 
-- ``prediction_statarget_mother_matching_filets.csv``: auxiliary matching file used for association metrics. Created when associations metrics are computed. 
-
-## Jupyter Notebook
-Check out the jupyter notebooks in [examples folder](https://github.com/danifranco/TIMISE/blob/main/examples) for more details.
+- ``associations.csv``: associations between predicted and gt instances.
+- ``associations_stats.csv``: summary of the associations to print them easily.
+- ``gt_final.csv``: gt statistics mixed with the association errors. Used to generate the final plots easily.
+- ``map_map.txt``: mAP results.
+- ``map_match_p.txt``: IoU matching between prediction and GT (per category). False positives are here too.
+- ``map_match_fn.txt``: rest of matchings between prediction and GT. False negatives are here.
+- ``matching_metrics.csv``: summary of the matching metrics to print them easily. 
+- ``prediction_stats.csv``: statistics of predicted instances.   
+- ``pred_gt_matching_info.csv``: IoU matching between prediction and GT as in map_match_p.txt but in csv format so it can be loaded easily into a dataframe. 
+- ``pred_group_file.txt``: each prediction instance category database. Currently done by skeleton length.
+- ``plots``: folder where all the plots are stored.
 
 ## Citation
 Under construction . . .
