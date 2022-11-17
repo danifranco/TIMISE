@@ -9,10 +9,10 @@ import pandas as pd
 from skimage.io import imread
 
 from .mAP_3Dvolume.mAP_engine import print_mAP_stats, mAP_computation_fast
-from .associations import (calculate_associations_from_map, print_association_stats, association_plot_2d, association_plot_3d,
-                           association_multiple_predictions)
+from .associations import calculate_associations_from_map, print_association_stats
 from .matching import calculate_matching_metrics, print_matching_stats
 from .utils import (Namespace, check_files, cable_length, create_map_aux_file_from_stats, create_map_groups_from_associations)
+from .plotter import Plotter
 
 class TIMISE:
     """TIMISE main class """
@@ -270,7 +270,7 @@ class TIMISE:
                 print_matching_stats(os.path.join(f, self.matching_file), self.show_categories)
 
 
-    def plot(self, plot_type='error_2d', show=True, individual_plots=False, nbins=30, draw_std=True,
+    def plot(self, plot_type='pie', show=True, individual_plots=False, nbins=30, draw_std=True,
              color_by="association_type", symbol="category", draw_plane=True, xaxis_range=None,
              yaxis_range=None, log_x=False, log_y=False, font_size=25, order=[], plot_shape=[1100,500]):
         """Plot errors in different formats. When multiple predictions are available a common plot is created.
@@ -328,28 +328,42 @@ class TIMISE:
             raise ValueError("You need to compute associations to create the neuroglancer file. "
                              "TIMISE(metrics=['associations'])")
 
-        assert plot_type in ['error_2d', 'error_3d']
+        assert plot_type in ['error_2d', 'error_3d', 'pie']
         assert color_by in ['association_type', 'category']
         assert symbol in ['association_type', 'category']
         if len(plot_shape) != 2:
             raise ValueError("'plot_shape' needs to have 2 values: [width, height]")
 
+        plotter = Plotter()
+
+        final_file = os.path.join(self.pred_out_dirs[0], self.final_errors_file)
+        assoc_file = os.path.join(self.pred_out_dirs[0], self.association_stats_file) 
+        matching_file = os.path.join(self.pred_out_dirs[0], self.matching_file) 
+        plot_dir = os.path.join(self.pred_out_dirs[0], "plots")
+
         if self.multiple_preds:
-            association_multiple_predictions(self.pred_out_dirs, self.association_stats_file,
-                show=show, show_categories=self.show_categories, order=order, shape=plot_shape)
+            if plot_type == 'pie':
+                plotter.combined_plot_multiple_predictions(self.pred_out_dirs, self.association_stats_file, self.matching_file,
+                    show=show, match_th=self.matching_stats_ths[-1])
+            else:
+                plotter.association_multiple_predictions(self.pred_out_dirs, self.association_stats_file,
+                    show=show, show_categories=self.show_categories, order=order, shape=plot_shape)
 
         if individual_plots or not self.multiple_preds:
-            final_file = os.path.join(self.pred_out_dirs[0], self.final_errors_file)
+            os.makedirs(plot_dir, exist_ok=True)
+
             if not self.split_categories is None:
                 if plot_type == 'error_3d':
-                    association_plot_3d(final_file, self.pred_out_dirs[0], show=show, draw_plane=draw_plane,
+                    plotter.association_plot_3d(final_file, plot_dir, show=show, draw_plane=draw_plane,
                                         xaxis_range=xaxis_range, yaxis_range=yaxis_range, log_x=log_x, log_y=log_y,
                                         color=color_by, symbol=symbol, font_size=font_size, shape=plot_shape)
             if plot_type == 'error_2d':
-                association_plot_2d(final_file, self.pred_out_dirs[0], show=show, xaxis_range=xaxis_range,
+                plotter.association_plot_2d(final_file, plot_dir, show=show, xaxis_range=xaxis_range,
                                     yaxis_range=yaxis_range, log_x=log_x, log_y=log_y, bins=nbins,
                                     draw_std=draw_std, font_size=font_size, shape=plot_shape)
-
+            elif plot_type == 'pie':
+                plotter.combined_plot(assoc_file, matching_file, plot_dir, show=show, per_category=True,
+                    match_th=self.matching_stats_ths[-1], hide_correct=True)
 
     def create_neuroglancer_file(self, method_name, categories=['all']):
         """Create a python script to visualize a method prediction in neuroglancer. 
