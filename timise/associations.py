@@ -1,10 +1,7 @@
 import os
-import statistics
 import pandas as pd
 import numpy as np
-from scipy import stats
 from prettytable import PrettyTable
-import plotly.express as px
 
 from .utils import str_list_to_ints_list
 

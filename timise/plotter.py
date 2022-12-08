@@ -1,4 +1,5 @@
 import os
+import statistics
 import cv2
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -6,12 +7,14 @@ import matplotlib as mpl
 import seaborn as sns
 import numpy as np
 from collections import OrderedDict
+from scipy import stats
+import plotly.express as px
 
 
 class Plotter():
     """ Sets up a seaborn environment and holds the functions for plotting our figures. """
 
-    def __init__(self, quality=1, hplot_max_value=-1, vplot_max_value=-1):
+    def __init__(self, quality=1, xaxis_range=-1, yaxis_range=-1, match_th=0.75):
         # Set mpl DPI in case we want to output to the screen / notebook
         mpl.rcParams['figure.dpi'] = 150
         
@@ -34,20 +37,20 @@ class Plotter():
             'FP': current_palette[0],
             'FN': current_palette[1]})
         self.quality = quality
-        self.hplot_max_value = hplot_max_value
-        self.vplot_max_value = vplot_max_value
+        self.xaxis_range = xaxis_range
+        self.yaxis_range = yaxis_range
+        self.match_th = match_th 
 
-    def combined_plot_multiple_predictions(self, prediction_dirs, assoc_file, matching_file, show=True, match_th=0.75):
-        """Calls combined_plot for each prediction. """
+    def error_pie_multiple_predictions(self, prediction_dirs, assoc_file, matching_file, show=True):
+        """Calls error_pie for each prediction. """
         for folder in prediction_dirs:
             plot_dir = os.path.join(folder, "plots")
             _assoc_file = os.path.join(folder, assoc_file)
             _matching_file = os.path.join(folder, matching_file)
 
-            self.combined_plot(_assoc_file, _matching_file, plot_dir, show=show, match_th=match_th, hide_correct=True)
+            self.combined_plot(_assoc_file, _matching_file, plot_dir, show=show, hide_correct=True)
 
-    def combined_plot(self, assoc_file, matching_file, save_path, show=True, match_th=0.75, 
-        hide_correct=True):
+    def error_pie(self, assoc_file, matching_file, save_path, show=True, hide_correct=True):
         """
         Create a combination of a pie and two bar plots. Adapted from TIDE: 
 
@@ -67,8 +70,6 @@ class Plotter():
         show : bool, optional
             Wheter to show or not the plot after saving.
 
-        match_th : int, optional
-            Which matching threshold to use when creating the plots. 
 
         hide_correct : bool, optional
             Whether to hide or not the correct matches and TP. 
@@ -105,7 +106,7 @@ class Plotter():
                 df2 = df.copy()
                 mat_df2 = mat_df.loc['total']
                 fname = ''
-            mat_df2 = mat_df2[mat_df2['thresh'] == match_th] 
+            mat_df2 = mat_df2[mat_df2['thresh'] == self.match_th] 
 
             error_sum = 0
             error_number_per_type = {}
@@ -145,8 +146,8 @@ class Plotter():
             fig, ax = plt.subplots(1, 1, figsize = (6, 5), dpi=high_dpi)
             sns.barplot(data=error_dfs, x='Count', y='Error Type', ax=ax,
                         palette=colors.values())
-            if self.hplot_max_value != -1:
-                ax.set_xlim(0, self.hplot_max_value)
+            if self.xaxis_range is not None:
+                ax.set_xlim(self.xaxis_range[0], self.xaxis_range[1])
             ax.set_xlabel('')
             ax.set_ylabel('')
             plt.setp(ax.get_xticklabels(), fontsize=28)
@@ -170,8 +171,8 @@ class Plotter():
             df_aux.columns=["Metric", "Count"]
             fig, ax = plt.subplots(1, 1, figsize = (2, 5), dpi=high_dpi)
             sns.barplot(data=df_aux, x="Metric", y="Count", ax=ax, palette=self.vplot_pallete.values())
-            if self.vplot_max_value != -1:
-                ax.set_ylim(0, self.vplot_max_value)
+            if self.yaxis_range is not None:
+                ax.set_ylim(self.yaxis_range[0], self.yaxis_range[1])
             ax.set_xlabel('')
             ax.set_ylabel('')
             ax.set_xticklabels(xlabels)
@@ -226,8 +227,8 @@ class Plotter():
             plt.show()
             
         
-    def association_plot_2d(self, final_file, save_path, show=True, bins=30, draw_std=True, xaxis_range=None,
-                            yaxis_range=None, log_x=False, log_y=False, font_size=25, shape=[1100,500]):
+    def association_plot_2d(self, final_file, save_path, show=True, bins=30, draw_std=True, log_x=False, 
+        log_y=False, font_size=25, shape=[1100,500]):
         """Plot 2D errors.
 
         Parameters
@@ -246,12 +247,6 @@ class Plotter():
 
         draw_std : bool, optional
             Whether to draw or not standar deviation of y axis.
-
-        xaxis_range : array of 2 floats, optional
-            Range of x axis.
-
-        yaxis_range : array of 2 floats, optional
-            Range of x axis.
 
         log_x : bool, optional
             True to apply log in 'x' axis.
@@ -304,16 +299,15 @@ class Plotter():
                             color_continuous_scale=px.colors.sequential.Bluered, width=shape[0], height=shape[1])
         fig.layout.showlegend = False
         fig.update(layout_coloraxis_showscale=False)
-        fig.update_layout(font=dict(size=font_size), xaxis_range=xaxis_range, yaxis_range=yaxis_range)
+        fig.update_layout(font=dict(size=font_size), xaxis_range=self.xaxis_range, yaxis_range=self.yaxis_range)
 
         fig.write_image(os.path.join(save_path,username+"_error.svg"), width=shape[0], height=shape[1])
         if show:
             fig.show()
 
 
-    def association_plot_3d(self, assoc_file, save_path, show=True, draw_plane=True, xaxis_range=None,
-                            yaxis_range=None, log_x=True, log_y=True, color="association_type",
-                            symbol="category", font_size=25, shape=[800,800]):
+    def association_plot_3d(self, assoc_file, save_path, show=True, draw_plane=True, log_x=True, log_y=True, 
+        color="association_type", symbol="category", font_size=25, shape=[800,800]):
         """Plot 3D errors.
 
         Parameters
@@ -329,12 +323,6 @@ class Plotter():
 
         draw_plane : bool, optional
             Wheter to draw or not the plane in z=0 to see better the 'over' and 'under' segmentations.
-
-        xaxis_range : array of 2 floats, optional
-            Range of x axis.
-
-        yaxis_range : array of 2 floats, optional
-            Range of x axis.
 
         log_x : bool, optional
             True to apply log in 'x' axis.
@@ -374,7 +362,7 @@ class Plotter():
         fig.update_layout(title=username+' - Error analysis', scene = dict(xaxis_title='Volume', yaxis_title='Cable length',
                         zaxis_title='Associations'), autosize=False, width=shape[0], height=shape[1],
                         margin=dict(l=65, r=50, b=65, t=90), font=dict(size=font_size),
-                        xaxis_range=xaxis_range, yaxis_range=yaxis_range)
+                        xaxis_range=self.xaxis_range, yaxis_range=self.yaxis_range)
 
         fig.write_image(os.path.join(save_path,username+"_error_3D.svg"))
         if show:
@@ -417,7 +405,7 @@ class Plotter():
             # Initialize in the first loop
             if 'ncategories' not in locals():
                 ncategories = df_method.shape[0]
-                categories_names = [df_method.iloc[i].name for i in range(ncategories)]
+                category_names = [df_method.iloc[i].name for i in range(ncategories)]
 
         df = pd.concat([val for val in dataframes])
         df = df.sort_values(by=['method'], ascending=False)
@@ -445,14 +433,14 @@ class Plotter():
         if show_categories:
             # Create a plot for each type of category
             for i in range(ncategories):
-                fig = px.bar(df.loc[categories_names[i]], x="method", y=["one-to-one", "missing", "over-segmentation",
-                            "under-segmentation", "many-to-many", "background"], title="Association performance ("+categories_names[i]+")",
+                fig = px.bar(df.loc[category_names[i]], x="method", y=["one-to-one", "missing", "over-segmentation",
+                            "under-segmentation", "many-to-many", "background"], title="Association performance ("+category_names[i]+")",
                             color_discrete_sequence=colors, labels={'method':'Methods', 'value':'Number of instances'},
                             width=shape[0], height=shape[1])
                 fig.update_layout(legend=dict(orientation="h", yanchor="bottom", y=1.005, xanchor="right", x=0.835, title_text='',
                                             font=dict(size=13)), font=dict(size=22))
                 fig.update_xaxes(tickangle=45)
-                fig.write_image(os.path.join(os.path.dirname(folder),"all_methods_"+categories_names[i]+"_errors.svg"),
+                fig.write_image(os.path.join(os.path.dirname(folder),"all_methods_"+category_names[i]+"_errors.svg"),
                                 width=shape[0], height=shape[1])
                 if show:
                     fig.show()
@@ -471,3 +459,99 @@ class Plotter():
             if show:
                 fig.show()
 
+
+    def error_bar_multiple_predictions(self, prediction_dirs, assoc_stats_file, matching_stats_file,
+        show=True, order=[], shape=[1100,500]):
+        """Create a plot that gather multiple prediction information.
+
+        Parameters
+        ----------
+        prediction_dirs : str
+            Directory where all the predictions folders are placed.
+
+        assoc_stats_file : str
+            Name of the association stats file.
+
+        show : bool, optional
+            Wheter to show or not the plot after saving.
+
+        order : list of str, optional
+            Order each prediction based on a given list. The names need to match the names used for
+            each prediction folder. E.g ['prediction1', 'prediction2'].
+
+        shape : 2d array of ints, optional
+            Defines the shape of the plot.
+        """
+        print("Creating multiple prediction association plots . . .")
+
+        dataframes = []
+        for folder in prediction_dirs:
+            df_method = pd.read_csv(os.path.join(folder,assoc_stats_file), index_col=0)
+            df_method['method'] = os.path.basename(folder)
+            dataframes.append(df_method)
+
+            # Initialize in the first loop
+            if 'ncategories' not in locals():
+                ncategories = df_method.shape[0]
+                category_names = [df_method.iloc[i].name for i in range(ncategories)]
+
+        df = pd.concat([val for val in dataframes])
+        df = df.sort_values(by=['method'], ascending=False)
+
+        # Change strings to integers
+        df["background"] = df["background"].str[1:-1].astype(int)
+        df["missing"] = df["missing"].str[1:-1].astype(int)
+        df["over-segmentation"] = df["over-segmentation"].str[1:-1].astype(int)
+        df["under-segmentation"] = df["under-segmentation"].str[1:-1].astype(int)
+        df["many-to-many"] = df["many-to-many"].str[1:-1].astype(int)
+
+        # Convert index to column
+        df.reset_index(inplace=True)
+        df['index'] = df['index'].str.capitalize()
+
+        if len(order)>1:
+            df['position'] = 0
+            for i, name in enumerate(order):
+                df.loc[df['method'] == name, 'position'] = i
+            df = df.sort_values(by=['position'], ascending=True)
+
+        # Order colors
+        colors = px.colors.qualitative.Plotly
+        tmp = colors[0]
+        colors[0] = colors[2]
+        colors[2] = tmp
+
+        # Association error bar plot
+        fig = px.histogram(df, x="index", y=["missing", "over-segmentation", "under-segmentation", "many-to-many"], 
+            title="Association performance", barmode='group', color="method", histfunc='sum',
+            color_discrete_sequence=colors, width=shape[0], height=shape[1])
+        fig.update_layout(xaxis_title="Cable length", yaxis_title="Association Error",
+            legend_title="Methods", font=dict(size=18))
+        fig.update_yaxes(range=self.yaxis_range)
+        fig.write_image(os.path.join(os.path.dirname(folder),"association_errors_bars.svg"),
+                        width=shape[0], height=shape[1])
+        
+        # Load all matching dataframes into one
+        all_dfs = []
+
+        for folder in prediction_dirs:
+            mat_df = pd.read_csv(os.path.join(folder, matching_stats_file))
+            mat_df['method'] = os.path.basename(folder)
+            all_dfs.append(mat_df)
+        mat_df = pd.concat(all_dfs)
+        del all_dfs
+
+        mat_df = mat_df[mat_df["category"]!="total"]
+        mat_df = mat_df[mat_df['thresh'] == self.match_th] 
+
+        # False negatives bar plot
+        fig2 = px.histogram(mat_df, x="category", y="fn", title="False Negatives", barmode='group', color="method",
+            color_discrete_sequence=colors, width=shape[0], height=shape[1])
+        fig2.update_layout(xaxis_title="Cable length", yaxis_title="False Negatives",
+            legend_title="Methods", font=dict(size=18))
+        fig2.update_yaxes(range=self.yaxis_range)
+        fig2.write_image(os.path.join(os.path.dirname(folder),"fn_errors_bars.svg"),
+                        width=shape[0], height=shape[1])
+        if show:
+            fig.show()
+            fig2.show()

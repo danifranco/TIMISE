@@ -121,7 +121,7 @@ class TIMISE:
         if not os.path.isdir(pred_dir):
             raise FileNotFoundError("{} directory does not exist".format(pred_dir))
         if not os.path.isdir(gt_dir):
-            raise FileNotFoundError("{} directory does not exist".format(pred_dir))
+            raise FileNotFoundError("{} directory does not exist".format(gt_dir))
         else:
             self.gt_file = check_files(gt_dir)
 
@@ -270,7 +270,7 @@ class TIMISE:
                 print_matching_stats(os.path.join(f, self.matching_file), self.show_categories)
 
 
-    def plot(self, plot_type='pie', show=True, individual_plots=False, nbins=30, draw_std=True,
+    def plot(self, plot_type='error_pie', show=True, individual_plots=False, nbins=30, draw_std=True,
              color_by="association_type", symbol="category", draw_plane=True, xaxis_range=None,
              yaxis_range=None, log_x=False, log_y=False, font_size=25, order=[], plot_shape=[1100,500],
              hplot_max=-1, vplot_max=-1):
@@ -329,13 +329,13 @@ class TIMISE:
             raise ValueError("You need to compute associations to create the neuroglancer file. "
                              "TIMISE(metrics=['associations'])")
 
-        assert plot_type in ['error_2d', 'error_3d', 'pie']
+        assert plot_type in ['assoc_error_2d', 'assoc_error_3d', 'assoc_stats', 'error_bar', 'error_pie']
         assert color_by in ['association_type', 'category']
         assert symbol in ['association_type', 'category']
         if len(plot_shape) != 2:
             raise ValueError("'plot_shape' needs to have 2 values: [width, height]")
 
-        plotter = Plotter(hplot_max_value=hplot_max, vplot_max_value=vplot_max)
+        plotter = Plotter(xaxis_range=xaxis_range, yaxis_range=yaxis_range, match_th=self.matching_stats_ths[-1])
 
         final_file = os.path.join(self.pred_out_dirs[0], self.final_errors_file)
         assoc_file = os.path.join(self.pred_out_dirs[0], self.association_stats_file) 
@@ -343,10 +343,13 @@ class TIMISE:
         plot_dir = os.path.join(self.pred_out_dirs[0], "plots")
 
         if self.multiple_preds:
-            if plot_type == 'pie':
-                plotter.combined_plot_multiple_predictions(self.pred_out_dirs, self.association_stats_file, self.matching_file,
-                    show=show, match_th=self.matching_stats_ths[-1])
-            else:
+            if plot_type == 'error_pie':
+                plotter.error_pie_multiple_predictions(self.pred_out_dirs, self.association_stats_file, self.matching_file,
+                    show=show)
+            elif plot_type == 'error_bar':
+                plotter.error_bar_multiple_predictions(self.pred_out_dirs, self.association_stats_file, self.matching_file, 
+                    show=show, order=order, shape=plot_shape)
+            elif plot_type == 'assoc_stats':
                 plotter.association_multiple_predictions(self.pred_out_dirs, self.association_stats_file,
                     show=show, show_categories=self.show_categories, order=order, shape=plot_shape)
 
@@ -354,17 +357,15 @@ class TIMISE:
             os.makedirs(plot_dir, exist_ok=True)
 
             if not self.split_categories is None:
-                if plot_type == 'error_3d':
+                if plot_type == 'assoc_error_3d':
                     plotter.association_plot_3d(final_file, plot_dir, show=show, draw_plane=draw_plane,
-                                        xaxis_range=xaxis_range, yaxis_range=yaxis_range, log_x=log_x, log_y=log_y,
-                                        color=color_by, symbol=symbol, font_size=font_size, shape=plot_shape)
-            if plot_type == 'error_2d':
-                plotter.association_plot_2d(final_file, plot_dir, show=show, xaxis_range=xaxis_range,
-                                    yaxis_range=yaxis_range, log_x=log_x, log_y=log_y, bins=nbins,
-                                    draw_std=draw_std, font_size=font_size, shape=plot_shape)
-            elif plot_type == 'pie':
-                plotter.combined_plot(assoc_file, matching_file, plot_dir, show=show, per_category=True,
-                    match_th=self.matching_stats_ths[-1], hide_correct=True)
+                        log_x=log_x, log_y=log_y, color=color_by, symbol=symbol, font_size=font_size, shape=plot_shape)
+            if plot_type == 'assoc_error_2d':
+                plotter.association_plot_2d(final_file, plot_dir, show=show, log_x=log_x, log_y=log_y, bins=nbins,
+                    draw_std=draw_std, font_size=font_size, shape=plot_shape)
+            elif plot_type == 'error_pie':
+                plotter.error_pie(assoc_file, matching_file, plot_dir, show=show, per_category=True,
+                    hide_correct=True)
 
     def create_neuroglancer_file(self, method_name, categories=['all']):
         """Create a python script to visualize a method prediction in neuroglancer. 
