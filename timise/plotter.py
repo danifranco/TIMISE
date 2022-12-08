@@ -526,7 +526,7 @@ class Plotter():
             title="Association performance", barmode='group', color="method", histfunc='sum',
             color_discrete_sequence=colors, width=shape[0], height=shape[1])
         fig.update_layout(xaxis_title="Cable length", yaxis_title="Association Error",
-            legend_title="Methods", font=dict(size=18))
+            legend_title="Methods", font=dict(size=24))
         fig.update_yaxes(range=self.yaxis_range)
         fig.write_image(os.path.join(os.path.dirname(folder),"association_errors_bars.svg"),
                         width=shape[0], height=shape[1])
@@ -543,12 +543,13 @@ class Plotter():
 
         mat_df = mat_df[mat_df["category"]!="total"]
         mat_df = mat_df[mat_df['thresh'] == self.match_th] 
+        mat_df['category'] = mat_df['category'].str.capitalize()
 
         # False negatives bar plot
         fig2 = px.histogram(mat_df, x="category", y="fn", title="False Negatives", barmode='group', color="method",
             color_discrete_sequence=colors, width=shape[0], height=shape[1])
         fig2.update_layout(xaxis_title="Cable length", yaxis_title="False Negatives",
-            legend_title="Methods", font=dict(size=18))
+            legend_title="Methods", font=dict(size=24))
         fig2.update_yaxes(range=self.yaxis_range)
         fig2.write_image(os.path.join(os.path.dirname(folder),"fn_errors_bars.svg"),
                         width=shape[0], height=shape[1])
