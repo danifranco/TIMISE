@@ -272,8 +272,7 @@ class TIMISE:
 
     def plot(self, plot_type='error_pie', show=True, individual_plots=False, nbins=30, draw_std=True,
              color_by="association_type", symbol="category", draw_plane=True, xaxis_range=None,
-             yaxis_range=None, log_x=False, log_y=False, font_size=25, order=[], plot_shape=[1100,500],
-             hplot_max=-1, vplot_max=-1):
+             yaxis_range=None, log_x=False, log_y=False, font_size=25, order=[], plot_shape=[1100,500]):
         """Plot errors in different formats. When multiple predictions are available a common plot is created.
 
            Parameters
@@ -364,8 +363,7 @@ class TIMISE:
                 plotter.association_plot_2d(final_file, plot_dir, show=show, log_x=log_x, log_y=log_y, bins=nbins,
                     draw_std=draw_std, font_size=font_size, shape=plot_shape)
             elif plot_type == 'error_pie':
-                plotter.error_pie(assoc_file, matching_file, plot_dir, show=show, per_category=True,
-                    hide_correct=True)
+                plotter.error_pie(assoc_file, matching_file, plot_dir, show=show, hide_correct=True)
 
     def create_neuroglancer_file(self, method_name, categories=['all']):
         """Create a python script to visualize a method prediction in neuroglancer. 

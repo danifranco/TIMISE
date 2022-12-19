@@ -48,7 +48,7 @@ class Plotter():
             _assoc_file = os.path.join(folder, assoc_file)
             _matching_file = os.path.join(folder, matching_file)
 
-            self.combined_plot(_assoc_file, _matching_file, plot_dir, show=show, hide_correct=True)
+            self.error_pie(_assoc_file, _matching_file, plot_dir, show=show, hide_correct=True)
 
     def error_pie(self, assoc_file, matching_file, save_path, show=True, hide_correct=True):
         """
@@ -509,12 +509,13 @@ class Plotter():
         df.reset_index(inplace=True)
         df['index'] = df['index'].str.capitalize()
 
+        # Order methods
         if len(order)>1:
             df['position'] = 0
             for i, name in enumerate(order):
                 df.loc[df['method'] == name, 'position'] = i
             df = df.sort_values(by=['position'], ascending=True)
-
+        
         # Order colors
         colors = px.colors.qualitative.Plotly
         tmp = colors[0]
@@ -544,6 +545,13 @@ class Plotter():
         mat_df = mat_df[mat_df["category"]!="total"]
         mat_df = mat_df[mat_df['thresh'] == self.match_th] 
         mat_df['category'] = mat_df['category'].str.capitalize()
+
+        # Order methods
+        if len(order)>1:
+            mat_df['position'] = 0
+            for i, name in enumerate(order):
+                mat_df.loc[mat_df['method'] == name, 'position'] = i
+            mat_df = mat_df.sort_values(by=['position'], ascending=True)
 
         # False negatives bar plot
         fig2 = px.histogram(mat_df, x="category", y="fn", title="False Negatives", barmode='group', color="method",
