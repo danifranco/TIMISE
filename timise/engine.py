@@ -7,6 +7,7 @@ import fileinput
 import numpy as np
 import pandas as pd
 from skimage.io import imread
+import networkx as nx
 
 from .mAP_3Dvolume.mAP_engine import print_mAP_stats, mAP_computation_fast
 from .associations import calculate_associations_from_map, print_association_stats
@@ -439,11 +440,14 @@ class TIMISE:
             print(self.log_prefix_str+"\tSkeletonizing . . .")
             skels = kimimaro.skeletonize(img, parallel=0, parallel_chunk_size=100, dust_threshold=0)
             keys = list(skels.keys())
+
             print(self.log_prefix_str+"\tCalculating cable length . . .")
             del img
             c_length = []
             skel_size = []
             vol = []
+            bifurcations = []
+            holes = []
             for label in keys:
                 ind_skel = skels[label]
                 vertices = ind_skel.vertices
@@ -454,6 +458,19 @@ class TIMISE:
                 skel_size.append(ind_skel.vertices.shape[0])
                 vol.append(volumes[values.index(label)])
 
+                G = nx.Graph()
+                G.add_edges_from(ind_skel.edges)
+                
+                # Bifurcations
+                nbifurcations = 0
+                for node in range(len(ind_skel.vertices)):
+                    if len(list(G.neighbors(node))) > 2:
+                        nbifurcations += 1
+                bifurcations.append(nbifurcations)
+
+                # Holes
+                holes.append(len(nx.cycle_basis(G)))
+
             # Kimimaro drops very tiny instances (e.g. 1 pixel instances). To be coherent later on we need those also
             # so we check which instances where not processed
             for v in values:
@@ -463,8 +480,8 @@ class TIMISE:
                    c_length.append(1)
                    skel_size.append(1)
 
-            data_tuples = list(zip(keys,vol,skel_size,c_length))
-            dataframe = pd.DataFrame(data_tuples, columns=['label','volume','skel_size','cable_length'])
+            data_tuples = list(zip(keys,vol,skel_size,c_length,bifurcations,holes))
+            dataframe = pd.DataFrame(data_tuples, columns=['label','volume','skel_size','cable_length','bifurcations','holes'])
         else:
             print(self.log_prefix_str+"\tSkipping GT statistics calculation (seems to be done here: {} )".format(out_csv_file))
             dataframe = pd.read_csv(out_csv_file, index_col=False)
