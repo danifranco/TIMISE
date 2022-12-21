@@ -3,6 +3,7 @@ import os
 import numpy as np
 import h5py
 from tqdm import tqdm
+from skimage.io import imread
 
 ####
 # list of utility functions
@@ -43,7 +44,11 @@ def writeh5(filename, dtarray, datasetname='main'):
 
 def readh5_handle(path, vol=''):
     # do the first key
-    fid = h5py.File(path,'r')
+    if path.endswith(".tif"):
+        fid = imread(path)
+    else:    
+        fid = h5py.File(path,'r')
+    
     if vol == '':
         if sys.version[0]=='3':
             vol = list(fid)[0]
