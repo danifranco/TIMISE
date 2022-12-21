@@ -151,14 +151,15 @@ def calculate_matching_metrics(out_file, pred_group_file, categories=None, preco
         print(log_prefix_str+"\tRelabel pred instances and map them to run it faster . . .")
         pred_mapping = {}
         c = 1
-        last_number = l_pred[0]
-        pred_mapping[l_pred[0]] = c
-        l_pred[0] = c
-        for i in range(1,len(l_pred)):
-            if last_number != l_pred[i]:
-                c += 1
-            pred_mapping[l_pred[i]] = c
-            l_pred[i] = c
+        if len(l_pred) != 0:
+            last_number = l_pred[0]
+            pred_mapping[l_pred[0]] = c
+            l_pred[0] = c
+            for i in range(1,len(l_pred)):
+                if last_number != l_pred[i]:
+                    c += 1
+                pred_mapping[l_pred[i]] = c
+                l_pred[i] = c
 
         scores = np.zeros((len(l_true)+1, len(l_pred)+1), dtype=np.float16)
 
