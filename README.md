@@ -100,12 +100,12 @@ And a summary plot for your model's errors:
 
 ## Details
 Two different workflows are implemented:
-- When no more folders are found inside the input path, e.g. ``/home/user/model_xx_prediction_folder`` in this example, the file ``.h5`` or ``.tif`` inside that folder will be evaluated against gt file in ``/home/user/gt_folder``. Find an example in this notebook: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://github.com/danifranco/TIMISE/blob/main/examples/TIMISE_one_method_evaluation_example.ipynb)
+- When no more folders are found inside the input path, e.g. ``/home/user/model_xx_prediction_folder`` in this example, the file ``.h5`` or ``.tif`` inside that folder will be evaluated against gt file in ``/home/user/gt_folder``. Find an example in this notebook: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1jVi_7i1AnS3MbszumlJsZip7GMFXYZ-g?usp=share_link)
 
-- When more folders are found inside the input path e.g. ``/home/user/model_xx_prediction_folder`` in this example. In this case every folder will be processed as if it were a method to be evaluated, so each folder must contain its own ``.h5``/``.tif`` file. This option is usefull when multiple models' predictions need to be evaluated at once. Apart for individual plots this workflow also allows the creation of a general plot gathering the results of all methods. Find an example in this notebook: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://github.com/danifranco/TIMISE/blob/main/examples/TIMISE_multiple_method_evaluation_example.ipynb)
+- When more folders are found inside the input path e.g. ``/home/user/model_xx_prediction_folder`` in this example. In this case every folder will be processed as if it were a method to be evaluated, so each folder must contain its own ``.h5``/``.tif`` file. This option is usefull when multiple models' predictions need to be evaluated at once. Apart for individual plots this workflow also allows the creation of a general plot gathering the results of all methods. Find an example in this notebook: [![Open In Colab](https://colab.research.google.com/drive/16tTMy3qeabOyHWgGMBpr9TbwOdsmfP9E?usp=share_link)
 
 ## Jupyter Notebook
-Check out the jupyter notebooks in [examples folder](https://github.com/danifranco/TIMISE/blob/main/examples) for every type of plot than can be generated with TIMISE for the two workflows described above.
+Check out the jupyter notebooks in [examples folder](https://github.com/danifranco/TIMISE/blob/main/examples) for every type of plot than can be generated with TIMISE for the two workflows described above. Please note that some graphics do not display correctly on Github, so we suggest you open the Colab links above to see them correctly. 
 
 ## Understanding output folder files
 These are the files that the toolbox will create:
