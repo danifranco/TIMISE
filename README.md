@@ -36,7 +36,7 @@ timise.evaluate("/home/user/model_xx_prediction_folder","/home/user/gt_folder",
 # Summarize the results as tables in the console
 timise.summarize() 
 
-# Plot errors (2D plot by default) and save in '/home/user/output/model_xx_prediction_folder'
+# Plot errors and save in '/home/user/output'
 timise.plot() 
 
 # You can also create neuroglancer scripts to visualize them easily. 
@@ -98,49 +98,51 @@ And a summary plot for your model's errors:
   <img src="https://github.com/danifranco/TIMISE/blob/main/examples/img/toy_summary.png" alt="summary_plot" width="500"/>
 </p>
 
-
-Or, if called as ``timise.plot("error_2d")`` something like this is generated:
-<p align="center">
-  <img src="https://github.com/danifranco/TIMISE/blob/main/examples/img/plot_error_example.png" alt="summary_plot" width="500"/>
-</p>
-
-## Jupyter Notebook
-Check out the jupyter notebooks in [examples folder](https://github.com/danifranco/TIMISE/blob/main/examples) for more details.
-
 ## Details
 Two different workflows are implemented:
-- When no more folders are found inside the input path, e.g. ``/home/user/model_xx_prediction_folder`` in this example, the file ``.h5`` or ``.tif`` inside that folder will be evaluated against gt file in ``/home/user/gt_folder``.
-- When more folders are found inside the input path e.g. ``/home/user/model_xx_prediction_folder`` in this example. In this case every folder will be processed as if it were a method to be evaluated, so each folder must contain its own ``.h5``/``.tif`` file. This option is usefull when multiple models' predictions need to be evaluated at once. Apart for individual plots this workflow also allows the creation of a general plot gathering the results of all methods.
+- When no more folders are found inside the input path, e.g. ``/home/user/model_xx_prediction_folder`` in this example, the file ``.h5`` or ``.tif`` inside that folder will be evaluated against gt file in ``/home/user/gt_folder``. Find an example in this notebook: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://github.com/danifranco/TIMISE/blob/main/examples/TIMISE_one_method_evaluation_example.ipynb)
+
+- When more folders are found inside the input path e.g. ``/home/user/model_xx_prediction_folder`` in this example. In this case every folder will be processed as if it were a method to be evaluated, so each folder must contain its own ``.h5``/``.tif`` file. This option is usefull when multiple models' predictions need to be evaluated at once. Apart for individual plots this workflow also allows the creation of a general plot gathering the results of all methods. Find an example in this notebook: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://github.com/danifranco/TIMISE/blob/main/examples/TIMISE_multiple_method_evaluation_example.ipynb)
+
+## Jupyter Notebook
+Check out the jupyter notebooks in [examples folder](https://github.com/danifranco/TIMISE/blob/main/examples) for every type of plot than can be generated with TIMISE for the two workflows described above.
 
 ## Understanding output folder files
 These are the files that the toolbox will create:
 
 ```shell
 /home/user/output_folder/model_xx_prediction_folder/
+├─ gt_group_file.txt (file)
+├─ gt_stats.csv (file)
+├─ *.svg (files) 
 └─ model_xx_prediction_folder/
-   ├─ associations.csv
-   ├─ associations_stats.csv
-   ├─ gt_final.csv
-   ├─ map_map.txt
-   ├─ map_match_p.txt
-   ├─ map_match_fn.txt
-   ├─ matching_metrics.csv
-   ├─ prediction_stats.csv
-   ├─ pred_gt_matching_info.csv
-   ├─ pred_group_file.txt
-   └─ plots
+   ├─ associations.csv (file)
+   ├─ associations_stats.csv (file)
+   ├─ gt_final.csv (file)
+   ├─ map_map.txt (file)
+   |─ map_match_fn.txt (file)
+   ├─ map_match_p.txt (file)
+   ├─ matching_metrics.csv (file)
+   ├─ prediction_stats.csv (file)
+   ├─ pred_gt_matching_info.csv (file)
+   ├─ pred_group_file.txt (file)
+   ├─ map_aux_files(folder)
+   └─ plots (folder)
 ```
-
+- ``gt_group_file.txt``: each GT instance category database. Currently done by skeleton length.
+- ``gt_stats.csv``: statistics of GT instances. 
+- ``*.svg``: optional .svg plots generated when multiple methods are available.
 - ``associations.csv``: associations between predicted and gt instances.
 - ``associations_stats.csv``: summary of the associations to print them easily.
 - ``gt_final.csv``: gt statistics mixed with the association errors. Used to generate the final plots easily.
 - ``map_map.txt``: mAP results.
-- ``map_match_p.txt``: IoU matching between prediction and GT (per category). False positives are here too.
 - ``map_match_fn.txt``: rest of matchings between prediction and GT. False negatives are here.
-- ``matching_metrics.csv``: summary of the matching metrics to print them easily. 
-- ``prediction_stats.csv``: statistics of predicted instances.   
-- ``pred_gt_matching_info.csv``: IoU matching between prediction and GT as in map_match_p.txt but in csv format so it can be loaded easily into a dataframe. 
+- ``map_match_p.txt``: IoU matching between prediction and GT (per category). False positives are here too.
+- ``matching_metrics.csv``: summary of the matching metrics to print them easily.
 - ``pred_group_file.txt``: each prediction instance category database. Currently done by skeleton length.
+- ``pred_gt_matching_info.csv``: IoU matching between prediction and GT as in map_match_p.txt but in csv format so it can be loaded easily into a dataframe. 
+- ``prediction_stats.csv``: statistics of predicted instances.   
+- ``map_aux_files``: directory where some auxiliary files of the metrics evaluation will be store so the calculation goes faster.
 - ``plots``: folder where all the plots are stored.
 
 ## Citation
