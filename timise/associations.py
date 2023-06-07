@@ -43,12 +43,12 @@ def calculate_associations_from_map(assoc_file, gt_stats_file, assoc_stats_file,
     # and modifying the predictions stats to insert information about the association
     final_df = pd.read_csv(gt_stats_file, index_col=False)
     final_df['counter'] = 0
-    final_df['association_counter'] = 0
     final_df['association_type'] = 'over-segmentation'
     
     _labels = np.array(final_df['label'].tolist())
     _counter = np.array(final_df['counter'].tolist())
-    _association_counter = np.array(final_df['association_counter'].tolist(), dtype=np.float32)
+    pred_number = np.zeros(len(final_df['counter']), dtype=np.uint16)
+    gt_number = np.zeros(len(final_df['counter']), dtype=np.uint16)
     _association_type = np.array(final_df['association_type'].tolist())
     if 'category' in final_df.columns:
         cell_statistics = []
@@ -87,26 +87,24 @@ def calculate_associations_from_map(assoc_file, gt_stats_file, assoc_stats_file,
         if row['association_type'] == 'over-segmentation':
             itemindex = np.where(_labels==gt_instances)
             _counter[itemindex] += 1
-            _association_counter[itemindex] = len(pred_instances)
+            pred_number[itemindex] = len(pred_instances)
+            gt_number[itemindex] = 1
             _association_type[itemindex] = 'over'
         elif row['association_type'] == 'under-segmentation':
             for ins in gt_instances:
                 itemindex = np.where(_labels==ins)
                 _counter[itemindex] += 1
-                _association_counter[itemindex] = -len(gt_instances)
+                pred_number[itemindex] = 1
+                gt_number[itemindex] = len(gt_instances)
                 _association_type[itemindex] = 'under'
         elif row['association_type'] == 'many-to-many':
             pred_count = len(pred_instances)
-            if pred_count >= len(gt_instances):
-                val = pred_count/len(gt_instances)
-                t = 'over'
-            else:
-                val = -pred_count/len(gt_instances)
-                t = 'under'
+            t = 'many (over)' if pred_count >= len(gt_instances) else 'many (under)'
             for ins in gt_instances:
                 itemindex = np.where(_labels==ins)
                 _counter[itemindex] += 1
-                _association_counter[itemindex] = val
+                pred_number[itemindex] = len(pred_instances)
+                gt_number[itemindex] = len(gt_instances)
                 _association_type[itemindex] = t
         elif row['association_type'] == 'one-to-one':
             itemindex = np.where(_labels==gt_instances)
@@ -125,9 +123,10 @@ def calculate_associations_from_map(assoc_file, gt_stats_file, assoc_stats_file,
             _association_type[itemindex] = 'other'
 
     final_df['counter'] = _counter
-    final_df['association_counter'] = _association_counter
+    final_df['pred_number'] = pred_number
+    final_df['gt_number'] = gt_number
     final_df['association_type'] = _association_type
-  
+
     if type(cell_statistics) is list:
         assoc_summary_df = pd.DataFrame.from_dict([ {k:[v] for k,v in a.items()} for a in cell_statistics] )
         assoc_summary_df = assoc_summary_df.set_axis(categories)

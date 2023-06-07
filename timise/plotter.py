@@ -265,42 +265,73 @@ class Plotter():
         df = pd.read_csv(final_file, index_col=False)
 
         X = np.array(df['cable_length'].tolist(), dtype=float).tolist()
-        Z = np.array(df['association_counter'].tolist(), dtype=float).tolist()
 
         ret_x, bin_edges, binnumber = stats.binned_statistic(X, X, 'mean', bins=bins)
         size = stats.binned_statistic(X, X, 'count', bins=bins).statistic
         df['binnumber'] = binnumber
-        ret_y = []
-        std = [] if draw_std else np.zeros((len(binnumber)),dtype=int)
+        split_merge_assocs = []
+        stds = []
+        assoc_type = []
         for i in range(1,bins+1):
-            r = df.loc[df['binnumber'] == i, 'association_counter']
-            if r.shape[0] == 0:
-                ret_y.append(0)
+            # Split associations (over and many (over))
+            r_split = df[df['binnumber'] == i]
+            r_split = r_split.loc[r_split['association_type'].isin(["many (over)", "over"]), "pred_number"]
+            if r_split.shape[0] == 0:
+                split_merge_assocs.append(0)
             else:
-                ret_y.append(statistics.mean(r))
+                split_merge_assocs.append(statistics.mean(r_split))
+            assoc_type.append("Split")    
+
+            # Merge associations (under and many (under))
+            r_merge = df[df['binnumber'] == i]
+            r_merge = r_merge.loc[r_merge['association_type'].isin(["many (under)", "under"]), "gt_number"]
+            if r_merge.shape[0] == 0:
+                split_merge_assocs.append(0)
+            else:
+                split_merge_assocs.append(statistics.mean(r_merge))
+            assoc_type.append("Merge")    
 
             # collect std
             if draw_std:
-                r = df.loc[df['binnumber'] == i, 'association_counter']
-                if r.shape[0] < 2:
-                    std.append(0)
+                if r_split.shape[0] < 2:
+                    stds.append(0)
                 else:
-                    std.append(statistics.stdev(r))
-            
+                    stds.append(statistics.stdev(r_split))
+                if r_merge.shape[0] < 2:
+                    stds.append(0)
+                else:
+                    stds.append(statistics.stdev(r_merge))
+
         # Create dataframe for the plot
-        data_tuples = list( zip( np.nan_to_num(ret_x), np.nan_to_num(ret_y), np.log(size+1)*50, std ) )
-        df2 = pd.DataFrame(data_tuples, columns=['cable_length','association_counter', 'bin_counter', 'stdev_assoc'])
-        error_y = 'stdev_assoc' if draw_std else None
+        ret_x2, size2 = [], [] 
+        for i in range(len(ret_x)):
+            ret_x2.append(ret_x[i])
+            ret_x2.append(ret_x[i])
+            size2.append(size[i])
+            size2.append(size[i])
+        ret_x2 = np.array(ret_x2)
+        size2 = np.array(size2)
+        data_tuples = list( zip( np.nan_to_num(ret_x2), np.nan_to_num(split_merge_assocs), np.log(size2+1)*50,\
+            stds, assoc_type) )
+        df2 = pd.DataFrame(data_tuples, columns=['cable_length', 'split_merge_assocs','bin_counter', 'stds', 'assoc_type'])
+        error_y = 'stds' if draw_std else None
 
         # Plot
         username = os.path.basename(save_path)
-        fig = px.scatter(df2, x="cable_length", y="association_counter", color="association_counter",size="bin_counter",
-                            error_y=error_y, log_x=log_x, log_y=log_y, title=username+' - Error analysis',
-                            color_continuous_scale=px.colors.sequential.Bluered, width=shape[0], height=shape[1])
-        fig.layout.showlegend = False
+        fig = px.scatter(df2, x="cable_length", y="split_merge_assocs", color="assoc_type", size="bin_counter", error_y=error_y,
+                         log_x=log_x, log_y=log_y, title=username+' - Error analysis', width=shape[0], height=shape[1], trendline="ols",
+                         labels={ "cable_length": "Cable length (nm)", "split_merge_assocs": "Split/Merge associations",
+                         "assoc_type": "Association type"})
+        fig.update_layout(legend=dict(
+            yanchor="top",
+            y=0.99,
+            xanchor="right",
+            x=0.99
+        ))
         fig.update(layout_coloraxis_showscale=False)
         fig.update_layout(font=dict(size=font_size), xaxis_range=self.xaxis_range, yaxis_range=self.yaxis_range)
 
+        print("Saving plot in: {}".format(os.path.join(save_path,username+"_error.svg")))
         fig.write_image(os.path.join(save_path,username+"_error.svg"), width=shape[0], height=shape[1])
         if show:
             fig.show()
@@ -364,6 +395,7 @@ class Plotter():
                         margin=dict(l=65, r=50, b=65, t=90), font=dict(size=font_size),
                         xaxis_range=self.xaxis_range, yaxis_range=self.yaxis_range)
 
+        print("Saving plot in: {}".format(os.path.join(save_path,username+"_error_3D.svg")))
         fig.write_image(os.path.join(save_path,username+"_error_3D.svg"))
         if show:
             fig.show()
@@ -440,8 +472,9 @@ class Plotter():
                 fig.update_layout(legend=dict(orientation="h", yanchor="bottom", y=1.005, xanchor="right", x=0.835, title_text='',
                                             font=dict(size=13)), font=dict(size=22))
                 fig.update_xaxes(tickangle=45)
-                fig.write_image(os.path.join(os.path.dirname(folder),"all_methods_"+category_names[i]+"_errors.svg"),
-                                width=shape[0], height=shape[1])
+                f = os.path.join(os.path.dirname(folder),"all_methods_"+category_names[i]+"_errors.svg")
+                print("Saving plot in: {}".format(f))
+                fig.write_image(f, width=shape[0], height=shape[1])
                 if show:
                     fig.show()
         else:
@@ -454,8 +487,9 @@ class Plotter():
             fig.update_layout(legend=dict(orientation="h", yanchor="bottom", y=1.005, xanchor="right", x=0.835, title_text='',
                                         font=dict(size=13)), font=dict(size=22))
             fig.update_xaxes(tickangle=45)
-            fig.write_image(os.path.join(os.path.dirname(folder),"all_methods_errors.svg"),
-                            width=shape[0], height=shape[1])
+            f = os.path.join(os.path.dirname(folder),"all_methods_errors.svg")
+            print("Saving plot in: {}".format(f))
+            fig.write_image(f, width=shape[0], height=shape[1])
             if show:
                 fig.show()
 
@@ -529,8 +563,9 @@ class Plotter():
         fig.update_layout(xaxis_title="Cable length", yaxis_title="Association Error",
             legend_title="Methods", font=dict(size=24))
         fig.update_yaxes(range=self.yaxis_range)
-        fig.write_image(os.path.join(os.path.dirname(folder),"association_errors_bars.svg"),
-                        width=shape[0], height=shape[1])
+        f = os.path.join(os.path.dirname(folder),"association_errors_bars.svg")
+        print("Saving plot in: {}".format(f))
+        fig.write_image(f, width=shape[0], height=shape[1])
         
         # Load all matching dataframes into one
         all_dfs = []
@@ -559,8 +594,9 @@ class Plotter():
         fig2.update_layout(xaxis_title="Cable length", yaxis_title="False Negatives",
             legend_title="Methods", font=dict(size=24))
         fig2.update_yaxes(range=self.yaxis_range)
-        fig2.write_image(os.path.join(os.path.dirname(folder),"fn_errors_bars.svg"),
-                        width=shape[0], height=shape[1])
+        f = os.path.join(os.path.dirname(folder),"fn_errors_bars.svg")
+        print("Saving plot in: {}".format(f))
+        fig2.write_image(f, width=shape[0], height=shape[1])
         if show:
             fig.show()
             fig2.show()
