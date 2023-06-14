@@ -320,7 +320,7 @@ class Plotter():
         username = os.path.basename(save_path)
         fig = px.scatter(df2, x="cable_length", y="split_merge_assocs", color="assoc_type", size="bin_counter", error_y=error_y,
                          log_x=log_x, log_y=log_y, title=username+' - Error analysis', width=shape[0], height=shape[1], trendline="ols",
-                         labels={ "cable_length": "Cable length (nm)", "split_merge_assocs": "Split/Merge associations",
+                         labels={ "cable_length": "Cable length (nm)", "split_merge_assocs": "Number of associations",
                          "assoc_type": "Association type"})
         fig.update_layout(legend=dict(
             yanchor="top",
