@@ -467,7 +467,7 @@ class Plotter():
             for i in range(ncategories):
                 fig = px.bar(df.loc[category_names[i]], x="method", y=["one-to-one", "missing", "over-segmentation",
                             "under-segmentation", "many-to-many", "background"], title="Association performance ("+category_names[i]+")",
-                            color_discrete_sequence=colors, labels={'method':'Methods', 'value':'Number of instances'},
+                            color_discrete_sequence=colors, labels={'method':'Methods', 'value':'Number of associations'},
                             width=shape[0], height=shape[1])
                 fig.update_layout(legend=dict(orientation="h", yanchor="bottom", y=1.005, xanchor="right", x=0.835, title_text='',
                                             font=dict(size=13)), font=dict(size=22))
@@ -482,7 +482,7 @@ class Plotter():
             df.reset_index(inplace=True)
             fig = px.bar(df, x="method", y=["one-to-one", "missing", "over-segmentation",
                         "under-segmentation", "many-to-many", "background"], title="Association performance comparison",
-                        color_discrete_sequence=colors, labels={'method':'Methods', 'value':'Number of instances'},
+                        color_discrete_sequence=colors, labels={'method':'Methods', 'value':'Number of associations'},
                         width=shape[0], height=shape[1])
             fig.update_layout(legend=dict(orientation="h", yanchor="bottom", y=1.005, xanchor="right", x=0.835, title_text='',
                                         font=dict(size=13)), font=dict(size=22))
