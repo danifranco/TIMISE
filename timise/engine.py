@@ -17,8 +17,8 @@ from .plotter import Plotter
 
 class TIMISE:
     """TIMISE main class """
-    def __init__(self, metrics=['mAP', 'associations', 'matching', 'pred_stats'], split_categories=None,
-                 split_property=None, split_ths=None, map_chunk_size=10, matching_stats_ths=[0.3, 0.5, 0.75],
+    def __init__(self, metrics=['mAP', 'associations', 'matching', 'pred_stats'], split_categories=['small', 'medium', 'large'],
+                 split_property='cable_length', split_ths=[1000,4000], map_chunk_size=10, matching_stats_ths=[0.3, 0.5, 0.75],
                  log_prefix_str=''):
         """TIMISE class initialization.
 
@@ -211,13 +211,11 @@ class TIMISE:
                     print(self.log_prefix_str+"\tSkipping association calculation (seems to be done here: {} )".format(final_error_file))
 
             # Creating the grouping file
-            if not self.split_categories is None and self.split_property == 'cable_length':
-                print(self.log_prefix_str+"####### Grouping file #######")
-                if not os.path.exists(pred_grouping_file):
-                    create_map_groups_from_associations(map_aux_dir, gt_stats_out_file, assoc_file, pred_grouping_file,
-                        cat=self.split_categories, log_prefix_str=self.log_prefix_str)   
-            else:
-                pred_grouping_file = ''
+            print(self.log_prefix_str+"####### Grouping file #######")
+            cat = self.split_categories if self.split_categories is not None else ['all']
+            if not os.path.exists(pred_grouping_file):
+                create_map_groups_from_associations(map_aux_dir, gt_stats_out_file, assoc_file, pred_grouping_file,
+                    cat=cat, log_prefix_str=self.log_prefix_str)   
 
             #######
             # mAP #

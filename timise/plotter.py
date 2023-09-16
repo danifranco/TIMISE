@@ -280,7 +280,7 @@ class Plotter():
                 split_merge_assocs.append(0)
             else:
                 split_merge_assocs.append(statistics.mean(r_split))
-            assoc_type.append("Split")    
+            assoc_type.append("Split associations")    
 
             # Merge associations (under and many (under))
             r_merge = df[df['binnumber'] == i]
@@ -289,7 +289,7 @@ class Plotter():
                 split_merge_assocs.append(0)
             else:
                 split_merge_assocs.append(statistics.mean(r_merge))
-            assoc_type.append("Merge")    
+            assoc_type.append("Merger associations")    
 
             # collect std
             if draw_std:
@@ -319,8 +319,8 @@ class Plotter():
         # Plot
         username = os.path.basename(save_path)
         fig = px.scatter(df2, x="cable_length", y="split_merge_assocs", color="assoc_type", size="bin_counter", error_y=error_y,
-                         log_x=log_x, log_y=log_y, title=username+' - Error analysis', width=shape[0], height=shape[1], trendline="ols",
-                         labels={ "cable_length": "Cable length (nm)", "split_merge_assocs": "Number of associations",
+                         log_x=log_x, log_y=log_y, title=username+' - Error analysis', width=shape[0], height=shape[1],
+                         labels={ "cable_length": "Cable length (nm)", "split_merge_assocs": "Number of segments",
                          "assoc_type": "Association type"})
         fig.update_layout(legend=dict(
             yanchor="top",
@@ -560,7 +560,7 @@ class Plotter():
         fig = px.histogram(df, x="index", y=["missing", "over-segmentation", "under-segmentation", "many-to-many"], 
             title="Association performance", barmode='group', color="method", histfunc='sum',
             color_discrete_sequence=colors, width=shape[0], height=shape[1])
-        fig.update_layout(xaxis_title="Cable length", yaxis_title="Association Error",
+        fig.update_layout(xaxis_title="Cable length", yaxis_title="Association Errors",
             legend_title="Methods", font=dict(size=24))
         fig.update_yaxes(range=self.yaxis_range)
         f = os.path.join(os.path.dirname(folder),"association_errors_bars.svg")

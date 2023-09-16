@@ -230,8 +230,9 @@ def create_map_groups_from_associations(map_aux_dir, gt_stats_file, association_
         else:
             for gt_ins in gt_instances:
                 c = df_gt[df_gt['label'] == gt_ins]['category'].iloc[0]
-                if cat_codes[c] > pred_category:
-                    pred_category = cat_codes[c]
+                if c in cat_codes:
+                    if cat_codes[c] > pred_category:
+                        pred_category = cat_codes[c]
 
         result[i, 0] = pred_ins
         result[i, 1] = pred_category
