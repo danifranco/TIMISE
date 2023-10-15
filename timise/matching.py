@@ -171,7 +171,7 @@ def calculate_matching_metrics(out_file, pred_group_file, categories=None, preco
             scores[gt_mapping[i], pred_mapping[pi] ] = float(row['iou'])
         
         assert 0 <= np.min(scores) <= np.max(scores) <= 1
-        scores = scores[1:,1:]  # ignoring background
+        scores = scores[1:,1:]  # ignoring first element added (background in the original code, here the instance number starts from 1)
         n_true, n_pred = scores.shape
         n_matched = min(n_true, n_pred)
         

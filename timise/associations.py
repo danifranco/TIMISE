@@ -28,8 +28,6 @@ def calculate_associations_from_map(assoc_file, gt_stats_file, assoc_stats_file,
            Prefix to be prepended to all prints. 
     """
     assoc_df = pd.read_csv(assoc_file, index_col=False)
-    out_dir = os.path.dirname(final_file)
-    
     # Categorize associations and save again 
     if not 'association_type' in assoc_df:
         assoc_df['predicted'] = str_list_to_ints_list(assoc_df, 'predicted', void_to_number=False)
@@ -37,7 +35,7 @@ def calculate_associations_from_map(assoc_file, gt_stats_file, assoc_stats_file,
         assoc_df['association_type'] = assoc_df.apply(lambda row: lab_association(row), axis=1)
         assoc_df = assoc_df.sort_values(by=['association_type'])
 
-        assoc_df.to_csv(os.path.join(out_dir, assoc_file), index=False)
+        assoc_df.to_csv(assoc_file, index=False)
 
     # Creating association statistics to not do it everytime the user wants to print them
     # and modifying the predictions stats to insert information about the association
@@ -135,10 +133,10 @@ def calculate_associations_from_map(assoc_file, gt_stats_file, assoc_stats_file,
         assoc_summary_df = assoc_summary_df.set_axis(['all'])
 
     print(log_prefix_str+"\tSaving associations metrics results in {}".format(final_file))
-    print(log_prefix_str+"\tSaving associations summary in {}".format(os.path.join(out_dir, assoc_stats_file)))
+    print(log_prefix_str+"\tSaving associations summary in {}".format(assoc_stats_file))
     # Save association final results and a summary to print it easily 
     final_df.to_csv(final_file, index=False)
-    assoc_summary_df.to_csv(os.path.join(out_dir, assoc_stats_file))
+    assoc_summary_df.to_csv(assoc_stats_file)
 
 
 def lab_association(row):
